@@ -227,9 +227,18 @@ class InstagramPublisher:
         })
         container_id = container_data["id"]
         print(f"   ✅ Container de historia creado: {container_id}")
+        print(f"   🔍 Respuesta API container: {container_data}")
 
         # Paso 2: Esperar que esté listo
         self.wait_for_container(container_id)
+
+        # Diagnóstico: consultar campos del container después de FINISHED
+        try:
+            diag = self._api("GET", container_id,
+                             params={"fields": "id,status_code,media_type,permalink"})
+            print(f"   🔍 Campos del container: {diag}")
+        except Exception as e:
+            print(f"   🔍 Error consultando container: {e}")
 
         # Paso 3: Publicar la historia
         print("   🚀 Publicando historia en Instagram...")
