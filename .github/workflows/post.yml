@@ -8,6 +8,10 @@ on:
 
 jobs:
   post:
+    permissions:
+    contents: write
+    runs-on: ubuntu-latest
+  
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -39,6 +43,7 @@ jobs:
           AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
           INSTAGRAM_APP_ID: ${{ secrets.INSTAGRAM_APP_ID }}
           INSTAGRAM_APP_SECRET: ${{ secrets.INSTAGRAM_APP_SECRET }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python run_pipeline.py --count 1
 
       - name: Upload run log as artifact
