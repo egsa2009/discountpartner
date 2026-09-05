@@ -196,7 +196,7 @@ class InstagramPublisher:
         container_data = self._api("POST", f"{self.account_id}/media", data={
             "image_url": story_url,
             "media_type": "STORIES",
-            "link_sticker": '{"link_url": "' + affiliate_url + '"}',
+            "link_sticker_url": affiliate_url,
         })
         container_id = container_data["id"]
         print(f"   ✅ Container de historia creado: {container_id}")
