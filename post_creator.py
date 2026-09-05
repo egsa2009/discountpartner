@@ -106,7 +106,7 @@ def get_product_img(url, size=640):
         return None
 
 
-def create_post(deal: dict, output_path: str = "post.png") -> str:
+def create_post(deal: dict, output_path: str = "post.png", story_url: str = "") -> str:
     print(f"   Creando imagen para: {deal['title'][:50]}...")
 
     canvas = Image.new("RGB", (W, H), OFFWHITE)
@@ -196,7 +196,7 @@ def create_post(deal: dict, output_path: str = "post.png") -> str:
                 + 52                        # pill ahorro
                 + (44 if has_rating else 0))# rating
     PANEL_Y1 = 780
-    PANEL_Y2 = H - 18                       # panel llega hasta abajo
+    PANEL_Y2 = H - 54                       # panel llega hasta abajo
     # Centrar contenido verticalmente en el panel
     panel_inner = PANEL_Y2 - PANEL_Y1
     ty_offset = (panel_inner - CONTENT_H) // 2  # margen top para centrar
@@ -249,6 +249,14 @@ def create_post(deal: dict, output_path: str = "post.png") -> str:
         draw.text((cx(draw, star_txt, f_stars), ty), star_txt, font=f_stars, fill=GOLD)
 
     # (Footer CTA eliminado — el link va en la historia)
+
+    # ── Footer link URL ─────────────────────────────────────────────────────────
+    if story_url:
+        link_display = story_url.replace("https://", "").rstrip("/")
+        f_link = font(22, bold=True)
+        draw.rectangle([0, H-52, W, H], fill=ORANGE)
+        lw = int(draw.textlength(link_display, font=f_link))
+        draw.text(((W - lw) // 2, H-40), link_display, font=f_link, fill=WHITE)
 
     fmt = "JPEG" if output_path.lower().endswith((".jpg", ".jpeg")) else "PNG"
     save_opts = {"quality": 95, "optimize": True} if fmt == "JPEG" else {"optimize": True}

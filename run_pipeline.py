@@ -180,7 +180,8 @@ def run_pipeline(dry_run: bool = False, count: int = None) -> dict:
         img_dir.mkdir(exist_ok=True)
         img_path = str(img_dir / f"post_{run_time.strftime('%Y%m%d_%H%M')}_{i}.png")
         try:
-            create_post(deal_dict, img_path)
+            pages_url_preview = f"egsa2009.github.io/discountpartner/deal/{i}"
+            create_post(deal_dict, img_path, story_url=pages_url_preview)
             result_entry["image_path"] = img_path
         except Exception as e:
             print(f"   ❌ Error creando imagen: {e}")
