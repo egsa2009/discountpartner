@@ -250,7 +250,9 @@ def create_post(deal: dict, output_path: str = "post.png") -> str:
 
     # (Footer CTA eliminado — el link va en la historia)
 
-    canvas.save(output_path, "PNG", optimize=True)
+    fmt = "JPEG" if output_path.lower().endswith((".jpg", ".jpeg")) else "PNG"
+    save_opts = {"quality": 95, "optimize": True} if fmt == "JPEG" else {"optimize": True}
+    canvas.save(output_path, fmt, **save_opts)
     kb = Path(output_path).stat().st_size // 1024
     print(f"   Imagen guardada: {output_path} ({kb} KB)")
     return output_path
