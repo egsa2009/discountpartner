@@ -265,9 +265,8 @@ class InstagramPublisher:
             story_url = image_url.replace("/upload/", "/upload/f_jpg,q_95/")[:-4] + ".jpg"
             print(f"   🔄 Convirtiendo a JPEG para historia: ...{story_url[-40:]}")
 
-        # Paso 1: Crear container de historia con link sticker
-        # Acortar URL para que Instagram acepte el link sticker
-        link_url = shorten_url(affiliate_url)
+        # Usar URL de GitHub Pages directamente (dominio verificado en Meta)
+        link_url = affiliate_url
 
         container_data = self._api("POST", f"{self.account_id}/media", data={
             "image_url": story_url,
