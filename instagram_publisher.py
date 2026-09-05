@@ -184,9 +184,17 @@ class InstagramPublisher:
         Las historias permiten links directos — mejor conversión que 'link en bio'.
         """
         print("   📖 Creando historia con link de afiliado...")
+
+        # Instagram Stories requiere JPEG (no PNG).
+        # Si es Cloudinary, usamos transformación f_jpg para convertir en vuelo.
+        story_url = image_url
+        if "res.cloudinary.com" in image_url and image_url.endswith(".png"):
+            story_url = image_url.replace("/upload/", "/upload/f_jpg,q_95/")[:-4] + ".jpg"
+            print(f"   🔄 Convirtiendo a JPEG para historia: ...{story_url[-40:]}")
+
         # Paso 1: Crear container de historia con link sticker
         container_data = self._api("POST", f"{self.account_id}/media", data={
-            "image_url": image_url,
+            "image_url": story_url,
             "media_type": "STORIES",
             "link_sticker": '{"link_url": "' + affiliate_url + '"}',
         })
