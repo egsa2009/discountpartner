@@ -193,7 +193,7 @@ def run_pipeline(dry_run: bool = False, count: int = None) -> dict:
             print(f"\n⏭️  DRY RUN: se omitiría la publicación en Instagram.")
             result_entry["published"] = False
         else:
-            print(f"\n📲 PASO 3: Publicando en Instagram...")
+            print(f"\n📲 PASO 3: Subiendo imagen a Cloudinary...")
             try:
                 public_url = upload_to_cloudinary(
                     img_path,
@@ -201,26 +201,24 @@ def run_pipeline(dry_run: bool = False, count: int = None) -> dict:
                     ig_cfg["cloudinary_api_key"],
                     ig_cfg["cloudinary_api_secret"]
                 )
-                caption = deal_dict.get("caption_es", deal.title)
-                pub_result = publisher.publish(public_url, caption)
-                result_entry.update({
-                    "published": True,
-                    "post_url": pub_result.get("post_url"),
-                    "media_id": pub_result.get("media_id")
-                })
-                # Publicar historia con link sticker clickeable
                 affiliate_url = deal_dict.get("affiliate_url") or deal_dict.get("url", "")
-                if affiliate_url:
-                    print(f"\n📖 PASO 4: Publicando historia con link directo a Amazon...")
-                    try:
-                        story_result = publisher.publish_story_with_link(public_url, affiliate_url)
-                        result_entry["story_id"] = story_result.get("story_id")
-                        print(f"   ✅ Historia publicada — link clickeable directo a Amazon")
-                    except Exception as e:
-                        print(f"   ⚠️  No se pudo publicar la historia: {e}")
+
+                # Solo publicar como historia (no como post de feed)
+                print(f"\n📖 PASO 4: Publicando historia en Instagram...")
+                try:
+                    story_result = publisher.publish_story_with_link(public_url, affiliate_url)
+                    result_entry.update({
+                        "published": True,
+                        "story_id": story_result.get("story_id"),
+                    })
+                    print(f"   ✅ Historia publicada.")
+                except Exception as e:
+                    print(f"   ❌ Error publicando historia: {e}")
+                    result_entry["error"] = f"Story publish failed: {e}"
+                    result_entry["published"] = False
             except Exception as e:
-                print(f"   ❌ Error publicando: {e}")
-                result_entry["error"] = f"Publish failed: {e}"
+                print(f"   ❌ Error subiendo imagen: {e}")
+                result_entry["error"] = f"Upload failed: {e}"
                 result_entry["published"] = False
 
         log["results"].append(result_entry)
