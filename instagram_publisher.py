@@ -70,6 +70,30 @@ def upload_to_cloudinary(image_path: str, cloud_name: str, api_key: str, api_sec
     return url
 
 
+
+# ─── URL Shortener (TinyURL) ─────────────────────────────────────────────────
+
+def shorten_url(url: str) -> str:
+    """
+    Acorta una URL usando TinyURL.
+    Meta/Instagram filtra URLs de Amazon con parámetros de afiliado —
+    una URL corta pasa los filtros y activa el link sticker en historias.
+    """
+    try:
+        resp = requests.get(
+            "https://tinyurl.com/api-create.php",
+            params={"url": url},
+            timeout=10
+        )
+        short = resp.text.strip()
+        if short.startswith("https://tinyurl.com"):
+            print(f"   🔗 URL acortada: {short}")
+            return short
+    except Exception as e:
+        print(f"   ⚠️  No se pudo acortar URL ({e}), usando original.")
+    return url
+
+
 # ─── Instagram Graph API ────────────────────────────────────────────────────────
 
 class InstagramPublisher:
@@ -193,10 +217,13 @@ class InstagramPublisher:
             print(f"   🔄 Convirtiendo a JPEG para historia: ...{story_url[-40:]}")
 
         # Paso 1: Crear container de historia con link sticker
+        # Acortar URL para que Instagram acepte el link sticker
+        link_url = shorten_url(affiliate_url)
+
         container_data = self._api("POST", f"{self.account_id}/media", data={
             "image_url": story_url,
             "media_type": "STORIES",
-            "link_sticker_url": affiliate_url,
+            "link_sticker_url": link_url,
         })
         container_id = container_data["id"]
         print(f"   ✅ Container de historia creado: {container_id}")
