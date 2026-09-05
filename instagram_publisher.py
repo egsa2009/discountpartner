@@ -41,29 +41,32 @@ GRAPH_API = "https://graph.instagram.com/v20.0"
 
 # ─── Upload a Imgbb (host de imágenes gratuito) ─────────────────────────────────
 
-def upload_to_imgbb(image_path: str, api_key: str) -> str:
+def upload_to_cloudinary(image_path: str, cloud_name: str, api_key: str, api_secret: str) -> str:
     """
-    Sube la imagen a Imgbb y retorna la URL pública.
-    API key gratis en: https://api.imgbb.com/
+    Sube la imagen a Cloudinary y retorna la URL pública HTTPS.
+    Cloudinary es compatible con Instagram Graph API.
+    Cuenta gratuita en: https://cloudinary.com
     """
-    import base64
-    print("   📤 Subiendo imagen a Imgbb...")
+    import hashlib
+    print("   📤 Subiendo imagen a Cloudinary...")
+
+    timestamp = int(time.time())
+    params_to_sign = f"timestamp={timestamp}"
+    signature = hashlib.sha1(f"{params_to_sign}{api_secret}".encode()).hexdigest()
+
     with open(image_path, "rb") as f:
-        img_b64 = base64.b64encode(f.read()).decode()
+        resp = requests.post(
+            f"https://api.cloudinary.com/v1_1/{cloud_name}/image/upload",
+            files={"file": f},
+            data={"api_key": api_key, "timestamp": timestamp, "signature": signature}
+        )
 
-    resp = requests.post(
-        "https://api.imgbb.com/1/upload",
-        data={"key": api_key, "image": img_b64, "expiration": 3600 * 24}  # 24h
-    )
-    data = resp.json()
-    if not data.get("success"):
-        raise RuntimeError(f"Error subiendo a Imgbb: {data}")
+    result = resp.json()
+    if "secure_url" not in result:
+        raise RuntimeError(f"Error subiendo a Cloudinary: {result}")
 
-    url = data["data"]["url"]
+    url = result["secure_url"]
     print(f"   ✅ Imagen disponible en: {url[:70]}...")
-    # Esperar que imgbb propague la imagen antes de que Instagram intente descargarla
-    print("   ⏳ Esperando 10s para que la imagen sea accesible...")
-    time.sleep(10)
     return url
 
 

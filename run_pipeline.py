@@ -22,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from deal_finder import AmazonDealFinder
 from post_creator import create_post
-from instagram_publisher import InstagramPublisher, upload_to_imgbb
+from instagram_publisher import InstagramPublisher, upload_to_cloudinary
 
 
 # ─── Configuración ──────────────────────────────────────────────────────────────
@@ -36,9 +36,11 @@ DEFAULT_CONFIG = {
         "deals_per_run": 2
     },
     "instagram": {
-        "account_id": "TU_ACCOUNT_ID",         # ← CAMBIAR
-        "access_token": "TU_ACCESS_TOKEN",     # ← CAMBIAR
-        "imgbb_api_key": "TU_IMGBB_KEY"        # ← CAMBIAR (gratis en api.imgbb.com)
+        "account_id": "TU_ACCOUNT_ID",             # ← CAMBIAR
+        "access_token": "TU_ACCESS_TOKEN",         # ← CAMBIAR
+        "cloudinary_cloud_name": "TU_CLOUD_NAME",  # ← CAMBIAR (cloudinary.com)
+        "cloudinary_api_key": "TU_API_KEY",        # ← CAMBIAR
+        "cloudinary_api_secret": "TU_API_SECRET",  # ← CAMBIAR
     },
     "schedule": {
         "post_times": ["09:00", "18:00"],
@@ -63,12 +65,14 @@ def load_config() -> dict:
     ig  = cfg["instagram"]
     amz = cfg["amazon"]
     env_map = {
-        "INSTAGRAM_ACCESS_TOKEN": (ig,  "access_token"),
-        "INSTAGRAM_ACCOUNT_ID":   (ig,  "account_id"),
-        "IMGBB_API_KEY":          (ig,  "imgbb_api_key"),
-        "AMAZON_AFFILIATE_TAG":   (amz, "affiliate_tag"),
-        "INSTAGRAM_APP_ID":       (ig,  "app_id"),
-        "INSTAGRAM_APP_SECRET":   (ig,  "app_secret"),
+        "INSTAGRAM_ACCESS_TOKEN":   (ig,  "access_token"),
+        "INSTAGRAM_ACCOUNT_ID":     (ig,  "account_id"),
+        "CLOUDINARY_CLOUD_NAME":    (ig,  "cloudinary_cloud_name"),
+        "CLOUDINARY_API_KEY":       (ig,  "cloudinary_api_key"),
+        "CLOUDINARY_API_SECRET":    (ig,  "cloudinary_api_secret"),
+        "AMAZON_AFFILIATE_TAG":     (amz, "affiliate_tag"),
+        "INSTAGRAM_APP_ID":         (ig,  "app_id"),
+        "INSTAGRAM_APP_SECRET":     (ig,  "app_secret"),
     }
     for env_var, (section, key) in env_map.items():
         val = os.getenv(env_var)
@@ -191,7 +195,12 @@ def run_pipeline(dry_run: bool = False, count: int = None) -> dict:
         else:
             print(f"\n📲 PASO 3: Publicando en Instagram...")
             try:
-                public_url = upload_to_imgbb(img_path, ig_cfg["imgbb_api_key"])
+                public_url = upload_to_cloudinary(
+                    img_path,
+                    ig_cfg["cloudinary_cloud_name"],
+                    ig_cfg["cloudinary_api_key"],
+                    ig_cfg["cloudinary_api_secret"]
+                )
                 caption = deal_dict.get("caption_es", deal.title)
                 pub_result = publisher.publish(public_url, caption)
                 result_entry.update({
