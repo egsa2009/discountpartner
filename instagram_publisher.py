@@ -61,6 +61,9 @@ def upload_to_imgbb(image_path: str, api_key: str) -> str:
 
     url = data["data"]["url"]
     print(f"   ✅ Imagen disponible en: {url[:70]}...")
+    # Esperar que imgbb propague la imagen antes de que Instagram intente descargarla
+    print("   ⏳ Esperando 10s para que la imagen sea accesible...")
+    time.sleep(10)
     return url
 
 
