@@ -71,6 +71,55 @@ def upload_to_cloudinary(image_path: str, cloud_name: str, api_key: str, api_sec
 
 
 
+
+# ─── GitHub Pages Redirect ───────────────────────────────────────────────────
+
+def update_github_redirect(affiliate_url: str, deal_index: int,
+                           gh_token: str, repo: str = "egsa2009/discountpartner") -> str:
+    """
+    Actualiza la página de redirect en GitHub Pages (docs/deal/{i}/index.html)
+    y retorna la URL pública. Usa GITHUB_TOKEN disponible en GitHub Actions.
+    """
+    import base64
+
+    redirect_html = (
+        "<!DOCTYPE html>\n<html lang=\'es\'>\n<head>\n"
+        "<meta charset=\'UTF-8\'>\n"
+        f"<meta http-equiv=\'refresh\' content=\'0; url={affiliate_url}\'>\n"
+        "<title>Discount Partner</title>\n</head>\n<body>\n"
+        f"<p><a href=\'{affiliate_url}\'>Ir a la oferta</a></p>\n"
+        "</body>\n</html>"
+    )
+
+    path = f"docs/deal/{deal_index}/index.html"
+    api_url = f"https://api.github.com/repos/{repo}/contents/{path}"
+    headers = {
+        "Authorization": f"token {gh_token}",
+        "Accept": "application/vnd.github.v3+json"
+    }
+
+    existing = requests.get(api_url, headers=headers)
+    sha = existing.json().get("sha") if existing.status_code == 200 else None
+
+    payload = {
+        "message": f"deal {deal_index}: redirect update",
+        "content": base64.b64encode(redirect_html.encode()).decode(),
+        "committer": {"name": "Discount Partner Bot", "email": "bot@discountpartner.com"}
+    }
+    if sha:
+        payload["sha"] = sha
+
+    resp = requests.put(api_url, json=payload, headers=headers)
+    if resp.status_code not in (200, 201):
+        raise RuntimeError(f"Error actualizando GitHub Pages: {resp.json()}")
+
+    owner = repo.split("/")[0]
+    repo_name = repo.split("/")[1]
+    pages_url = f"https://{owner}.github.io/{repo_name}/deal/{deal_index}/"
+    print(f"   ✅ Redirect actualizado: {pages_url}")
+    return pages_url
+
+
 # ─── URL Shortener (TinyURL) ─────────────────────────────────────────────────
 
 def shorten_url(url: str) -> str:

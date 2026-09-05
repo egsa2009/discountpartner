@@ -22,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from deal_finder import AmazonDealFinder
 from post_creator import create_post
-from instagram_publisher import InstagramPublisher, upload_to_cloudinary
+from instagram_publisher import InstagramPublisher, upload_to_cloudinary, update_github_redirect
 
 
 # ─── Configuración ──────────────────────────────────────────────────────────────
@@ -203,13 +203,21 @@ def run_pipeline(dry_run: bool = False, count: int = None) -> dict:
                 )
                 affiliate_url = deal_dict.get("affiliate_url") or deal_dict.get("url", "")
 
-                # Solo publicar como historia (no como post de feed)
+                # Actualizar redirect en GitHub Pages y publicar historia
                 print(f"\n📖 PASO 4: Publicando historia en Instagram...")
                 try:
-                    story_result = publisher.publish_story_with_link(public_url, affiliate_url)
+                    gh_token = os.getenv("GITHUB_TOKEN", "")
+                    if gh_token and affiliate_url:
+                        pages_url = update_github_redirect(affiliate_url, i, gh_token)
+                    else:
+                        pages_url = affiliate_url  # fallback local
+                        print(f"   ⚠️  Sin GITHUB_TOKEN — usando URL directa (no funcionará el link sticker)")
+
+                    story_result = publisher.publish_story_with_link(public_url, pages_url)
                     result_entry.update({
                         "published": True,
                         "story_id": story_result.get("story_id"),
+                        "story_link": pages_url,
                     })
                     print(f"   ✅ Historia publicada.")
                 except Exception as e:
