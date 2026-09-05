@@ -33,7 +33,9 @@ jobs:
         env:
           INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
           INSTAGRAM_ACCOUNT_ID: ${{ secrets.INSTAGRAM_ACCOUNT_ID }}
-          IMGBB_API_KEY: ${{ secrets.IMGBB_API_KEY }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
           AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
           INSTAGRAM_APP_ID: ${{ secrets.INSTAGRAM_APP_ID }}
           INSTAGRAM_APP_SECRET: ${{ secrets.INSTAGRAM_APP_SECRET }}
