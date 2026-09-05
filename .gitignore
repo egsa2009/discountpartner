@@ -1,0 +1,27 @@
+# ─── Credenciales — NUNCA subir al repo ───────────────────────────────────────
+config.json
+.env
+
+# ─── Archivos generados por el pipeline ────────────────────────────────────────
+Imagenes/
+*.png
+deals_*.json
+run_log_*.json
+amazon_debug.html
+debug_cards.json
+
+# ─── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# ─── Otros ────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
