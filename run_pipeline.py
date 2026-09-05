@@ -97,9 +97,9 @@ def check_config(cfg: dict) -> bool:
     if acct in ("TU_ACCOUNT_ID", "", None):
         issues.append("  • instagram.account_id: Necesitas tu Instagram Business Account ID")
 
-    imgbb = cfg["instagram"]["imgbb_api_key"]
-    if imgbb in ("TU_IMGBB_KEY", "", None):
-        issues.append("  • instagram.imgbb_api_key: Clave de Imgbb (gratis en api.imgbb.com)")
+    cloud = cfg["instagram"].get("cloudinary_cloud_name")
+    if cloud in ("TU_CLOUD_NAME", "", None):
+        issues.append("  • instagram.cloudinary_cloud_name: Cloud name de Cloudinary (cloudinary.com)")
 
     if issues:
         print("❌ Configuración incompleta. Edita config.json:\n")
