@@ -181,7 +181,7 @@ class InstagramPublisher:
         # Paso 1: Crear container de historia con link sticker
         container_data = self._api("POST", f"{self.account_id}/media", data={
             "image_url": image_url,
-            "media_type": "IMAGE",
+            "media_type": "STORIES",
             "link_sticker": '{"link_url": "' + affiliate_url + '"}',
         })
         container_id = container_data["id"]

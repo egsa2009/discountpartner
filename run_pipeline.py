@@ -199,14 +199,10 @@ def run_pipeline(dry_run: bool = False, count: int = None) -> dict:
                     "post_url": pub_result.get("post_url"),
                     "media_id": pub_result.get("media_id")
                 })
-                # Actualizar bio con el link del deal
+                # Publicar historia con link sticker clickeable
                 affiliate_url = deal_dict.get("affiliate_url") or deal_dict.get("url", "")
                 if affiliate_url:
-                    print(f"\n🔗 PASO 4: Actualizando link en bio de Instagram...")
-                    publisher.update_bio_link(affiliate_url)
-
-                    # Publicar historia con link sticker clickeable
-                    print(f"\n📖 PASO 5: Publicando historia con link directo...")
+                    print(f"\n📖 PASO 4: Publicando historia con link directo a Amazon...")
                     try:
                         story_result = publisher.publish_story_with_link(public_url, affiliate_url)
                         result_entry["story_id"] = story_result.get("story_id")
