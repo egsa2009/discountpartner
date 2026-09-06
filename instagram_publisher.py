@@ -157,7 +157,7 @@ class InstagramPublisher:
         if method == "GET":
             resp = requests.get(url, params={**params, **kwargs.get("params", {})})
         else:
-            resp = requests.post(url, params=params, data=kwargs.get("data", {}))
+            resp = requests.post(url, params={**params, **kwargs.get("params", {})}, data=kwargs.get("data", {}))
         data = resp.json()
         if "error" in data:
             raise RuntimeError(f"Graph API error: {data['error']}")
@@ -268,7 +268,7 @@ class InstagramPublisher:
         # Usar URL de GitHub Pages directamente (dominio verificado en Meta)
         link_url = affiliate_url
 
-        container_data = self._api("POST", f"{self.account_id}/media", data={
+        container_data = self._api("POST", f"{self.account_id}/media", params={
             "image_url": story_url,
             "media_type": "STORIES",
             "link_sticker_url": link_url,
