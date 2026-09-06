@@ -36,7 +36,7 @@ except ImportError:
 
 # ─── Configuración ──────────────────────────────────────────────────────────────
 
-GRAPH_API = "https://graph.instagram.com/v20.0"
+GRAPH_API = "https://graph.facebook.com/v20.0"
 
 
 # ─── Upload a Imgbb (host de imágenes gratuito) ─────────────────────────────────
