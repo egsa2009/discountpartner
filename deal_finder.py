@@ -1,16 +1,18 @@
 """
-deal_finder.py v10 — Slickdeals RSS con imágenes desde CDN de Slickdeals
-(no depende de Amazon para las imágenes → sin bloqueo en GitHub Actions)
+deal_finder.py v11 — Deduplicación persistente: evita repetir los mismos productos
+Los ASINs enviados se guardan en sent_asins.json y se saltan por 48 horas.
 """
 
 import io
+import json
 import re
 import time
 import feedparser
 import requests
 from bs4 import BeautifulSoup
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from email.utils import parsedate_to_datetime
 
@@ -28,6 +30,7 @@ CATEGORIES = [
         "search_terms": [
             "calvin klein amazon", "tommy hilfiger amazon",
             "lacoste amazon", "ralph lauren amazon", "armani amazon",
+            "boss hugo amazon", "champion amazon deal",
         ],
         "reddit_subreddits": ["frugalmalefashion", "frugalfemininity", "deals"],
         "reddit_queries": ["calvin klein", "tommy hilfiger", "lacoste", "ralph lauren"],
@@ -42,6 +45,7 @@ CATEGORIES = [
         "search_terms": [
             "nike shoes amazon", "adidas shoes amazon",
             "new balance amazon", "under armour amazon", "hoka amazon",
+            "vans amazon deal", "converse amazon deal",
         ],
         "reddit_subreddits": ["frugalmalefashion", "RunningShoeDeals", "deals"],
         "reddit_queries": ["nike amazon", "adidas amazon", "new balance", "hoka"],
@@ -57,6 +61,7 @@ CATEGORIES = [
         "search_terms": [
             "apple amazon deal", "samsung amazon deal",
             "sony amazon deal", "nintendo amazon deal", "lenovo amazon deal",
+            "bose amazon deal", "logitech amazon deal",
         ],
         "reddit_subreddits": ["buildapcsales", "GameDeals", "deals"],
         "reddit_queries": ["apple amazon", "samsung amazon", "sony amazon", "nintendo amazon"],
@@ -70,6 +75,46 @@ HEADERS = {
     ),
     "Accept-Language": "en-US,en;q=0.9",
 }
+
+# Ruta del archivo de ASINs enviados (en el mismo directorio que este script)
+SENT_ASINS_PATH = Path(__file__).parent / "sent_asins.json"
+# Cuántas horas antes de que un ASIN pueda repetirse
+ASIN_COOLDOWN_HOURS = 48
+
+
+# ─── Gestión de ASINs enviados ──────────────────────────────────────────────
+
+def load_sent_asins() -> dict:
+    """Carga el historial de ASINs enviados. Formato: {asin: iso_timestamp}"""
+    if SENT_ASINS_PATH.exists():
+        try:
+            data = json.loads(SENT_ASINS_PATH.read_text(encoding="utf-8"))
+            # Limpiar entradas expiradas (> 48h)
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=ASIN_COOLDOWN_HOURS)
+            cleaned = {
+                asin: ts for asin, ts in data.items()
+                if datetime.fromisoformat(ts) > cutoff
+            }
+            return cleaned
+        except Exception as e:
+            print(f"   ⚠️  Error cargando sent_asins.json: {e}")
+    return {}
+
+
+def save_sent_asins(sent: dict):
+    """Guarda el historial actualizado de ASINs enviados."""
+    try:
+        SENT_ASINS_PATH.write_text(
+            json.dumps(sent, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        print(f"   💾 sent_asins.json actualizado ({len(sent)} ASINs)")
+    except Exception as e:
+        print(f"   ⚠️  Error guardando sent_asins.json: {e}")
+
+
+def mark_asin_sent(sent: dict, asin: str):
+    """Marca un ASIN como enviado ahora."""
+    sent[asin] = datetime.now(timezone.utc).isoformat()
 
 
 # ─── Dataclass Deal ─────────────────────────────────────────────────────────
@@ -88,19 +133,19 @@ class Deal:
     image_bytes: bytes = field(default=b"", repr=False)
     source: str = "Slickdeals"
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    asin: str = ""
 
     def savings(self) -> float:
         return max(0.0, self.original_price - self.sale_price)
 
     def telegram_caption(self, index: int) -> str:
         title_short = self.title[:120] + ("…" if len(self.title) > 120 else "")
-        asin = _extract_asin(self.product_url)
+        asin = self.asin or _extract_asin(self.product_url)
         tag  = _tag_from_url(self.affiliate_url) or "discountpartn-20"
         short_url = (
             f"https://www.amazon.com/dp/{asin}?tag={tag}"
             if asin and tag else self.affiliate_url
         )
-        # URL de búsqueda Colombia: filtra por envío internacional
         brand_query = self.title.split("|")[0].strip()[:40].replace(" ", "+")
         colombia_url = (
             f"https://www.amazon.com/s?k={brand_query}"
@@ -135,6 +180,7 @@ class Deal:
             "category_emoji": self.category_emoji,
             "source": self.source,
             "timestamp": self.timestamp,
+            "asin": self.asin,
         }
 
 
@@ -226,13 +272,9 @@ class AmazonDealFinder:
             print(f"   ⚠️  Reddit r/{subreddit}: {e}")
             return []
 
-    # ── Imagen desde el RSS entry ────────────────────────────────────────────
+    # ── Imagen ───────────────────────────────────────────────────────────────
 
-    def _image_from_entry(self, entry) -> tuple[str, bytes]:
-        """
-        Extrae la imagen del producto desde el RSS entry o la página del deal.
-        Orden: media_content → media_thumbnail → <img> en summary → og:image en página SD.
-        """
+    def _image_from_entry(self, entry) -> tuple:
         def _download(url: str) -> bytes:
             try:
                 r = self.session.get(url, timeout=8)
@@ -242,7 +284,6 @@ class AmazonDealFinder:
                 pass
             return b""
 
-        # 1. media_content (feedparser)
         for media in entry.get("media_content", []):
             url = media.get("url", "")
             if url.startswith("http"):
@@ -250,7 +291,6 @@ class AmazonDealFinder:
                 if data:
                     return url, data
 
-        # 2. media_thumbnail
         for thumb in entry.get("media_thumbnail", []):
             url = thumb.get("url", "")
             if url.startswith("http"):
@@ -258,7 +298,6 @@ class AmazonDealFinder:
                 if data:
                     return url, data
 
-        # 3. <img> en el HTML del summary/description
         html = entry.get("summary", "") or entry.get("description", "")
         if html:
             soup = BeautifulSoup(html, "html.parser")
@@ -269,19 +308,16 @@ class AmazonDealFinder:
                     if data:
                         return src, data
 
-        # 4. og:image en la página del deal de Slickdeals
         sd_link = entry.get("link", "")
         if sd_link and "slickdeals.net" in sd_link:
             try:
                 resp = self.session.get(sd_link, timeout=10)
                 page_soup = BeautifulSoup(resp.text, "html.parser")
-                # og:image (la mejor imagen del deal)
                 og = page_soup.find("meta", property="og:image")
                 if og and og.get("content","").startswith("http"):
                     data = _download(og["content"])
                     if data:
                         return og["content"], data
-                # imagen principal del producto en la página
                 for img in page_soup.find_all("img"):
                     src = img.get("src","")
                     if src.startswith("http") and any(x in src for x in ["images-na", "m.media-amazon", "cloudfront", "ssl-images"]):
@@ -293,16 +329,14 @@ class AmazonDealFinder:
 
         return "", b""
 
-    # ── URL real de Amazon ───────────────────────────────────────────────────
+    # ── URL Amazon ───────────────────────────────────────────────────────────
 
     def _amazon_url_from_entry(self, entry) -> str:
-        """Intenta extraer la URL de Amazon directamente del RSS entry."""
         full_text = " ".join([
             entry.get("title", ""),
             entry.get("summary", ""),
             entry.get("link", ""),
         ])
-        # Extraer ASIN directamente (10 chars alfanuméricos después de /dp/ o /gp/product/)
         for pat in [
             r'amazon\.com/(?:[^/]+/)?dp/([A-Z0-9]{10})',
             r'amazon\.com/gp/product/([A-Z0-9]{10})',
@@ -315,14 +349,11 @@ class AmazonDealFinder:
         return ""
 
     def _amazon_url_from_page(self, sd_url: str) -> str:
-        """Obtiene URL de Amazon desde la página de Slickdeals (redirect + HTML parse)."""
         try:
             resp = self.session.get(sd_url, timeout=12, allow_redirects=True)
-            # Intentar extraer ASIN de la URL final (redirect)
             asin = _extract_asin(resp.url)
             if asin:
                 return f"https://www.amazon.com/dp/{asin}"
-            # Buscar en el HTML
             soup = BeautifulSoup(resp.text, "html.parser")
             for a in soup.find_all("a", href=True):
                 href = a["href"]
@@ -330,7 +361,6 @@ class AmazonDealFinder:
                     asin = _extract_asin(href)
                     if asin:
                         return f"https://www.amazon.com/dp/{asin}"
-            # Regex fallback en texto crudo
             for pat in [r'amazon\.com/(?:[^/]+/)?dp/([A-Z0-9]{10})', r'asin=([A-Z0-9]{10})']:
                 m = re.search(pat, resp.text, re.IGNORECASE)
                 if m:
@@ -341,9 +371,17 @@ class AmazonDealFinder:
 
     # ── Pipeline principal ────────────────────────────────────────────────────
 
-    def find_deals(self, count: int = 10) -> list:
-        print("🔍 Buscando ofertas en Slickdeals RSS…")
-        deals, seen = [], set()
+    def find_deals(self, count: int = 10, sent_asins: dict = None) -> list:
+        """
+        Busca deals frescos. sent_asins = {asin: timestamp} — productos ya enviados
+        recientemente que se deben omitir para evitar repeticiones.
+        """
+        if sent_asins is None:
+            sent_asins = {}
+
+        skipped_asins = set(sent_asins.keys())
+        print(f"🔍 Buscando ofertas… ({len(skipped_asins)} ASINs en cooldown)")
+        deals, seen_titles, seen_asins = [], set(), set(skipped_asins)
 
         for cat in CATEGORIES:
             cat_deals = []
@@ -358,34 +396,30 @@ class AmazonDealFinder:
                     sd_link = entry.get("link", "")
                     key     = title.lower()
 
-                    if key in seen or not title:
+                    if key in seen_titles or not title:
                         continue
                     if "amazon" not in f"{title} {summary} {sd_link}".lower():
                         continue
                     if not any(kw in title.lower() for kw in cat["keywords"]):
                         continue
 
-                    # ── Filtro de antigüedad: solo deals de últimas 24 horas ──
+                    # ── Filtro de antigüedad: solo deals de últimas 4 horas ──
                     pub_str = entry.get("published", "")
                     if pub_str:
                         try:
-                            from email.utils import parsedate_to_datetime
-                            from datetime import datetime, timezone
                             pub_dt = parsedate_to_datetime(pub_str)
                             age_h = (datetime.now(timezone.utc) - pub_dt).total_seconds() / 3600
                             if age_h > 4:
-                                print(f"      ⏰ Deal muy viejo ({age_h:.0f}h > 4h): {title[:40]}")
+                                print(f"      ⏰ Muy viejo ({age_h:.0f}h): {title[:40]}")
                                 continue
                         except Exception:
-                            pass  # Sin fecha → incluir igual
+                            pass
 
                     orig, sale, disc = extract_prices(f"{title} {summary}")
                     if disc is None or disc < self.min_discount:
                         continue
-                    # Si el precio en el título tiene "*" → coupon/clip, descuento puede ser irreal
-                    # Solo rechazar si el descuento calculado es absurdo (> 90%)
                     if disc > 90 and "*" in title:
-                        print(f"      ⚠️  Precio coupon irreal ({disc}%*): {title[:40]}")
+                        print(f"      ⚠️  Coupon irreal ({disc}%*): {title[:40]}")
                         continue
 
                     # URL de Amazon
@@ -395,17 +429,21 @@ class AmazonDealFinder:
                         amazon_url = self._amazon_url_from_page(sd_link)
                         time.sleep(0.5)
                     if not amazon_url:
-                        print(f"         ⚠️  Sin URL Amazon, omitiendo")
+                        continue
+
+                    asin = _extract_asin(amazon_url)
+
+                    # ── DEDUPLICACIÓN PERSISTENTE: saltar ASIN ya enviado ──
+                    if asin and asin in seen_asins:
+                        print(f"      🔄 ASIN {asin} ya enviado recientemente, omitiendo")
                         continue
 
                     affiliate_url = add_affiliate_tag(amazon_url, self.affiliate_tag)
-
-                    # Imagen desde el RSS entry (no bloqueable)
                     img_url, img_bytes = self._image_from_entry(entry)
                     if img_bytes:
                         print(f"      🖼️  Imagen OK ({len(img_bytes)//1024} KB)")
                     else:
-                        print(f"      ⚠️  Sin imagen en entry")
+                        print(f"      ⚠️  Sin imagen")
                     time.sleep(0.2)
 
                     cat_deals.append(Deal(
@@ -413,13 +451,16 @@ class AmazonDealFinder:
                         discount_pct=disc, product_url=amazon_url, affiliate_url=affiliate_url,
                         image_url=img_url, image_bytes=img_bytes,
                         category=cat["name"], category_emoji=cat["emoji"],
+                        asin=asin,
                     ))
-                    seen.add(key)
+                    seen_titles.add(key)
+                    if asin:
+                        seen_asins.add(asin)
 
                 if len(cat_deals) >= 4:
                     break
 
-            # ── Reddit RSS como fuente adicional (precios verificados en tiempo real) ──
+            # ── Reddit RSS ────────────────────────────────────────────────────
             if len(cat_deals) < 3:
                 reddit_subs = cat.get("reddit_subreddits", [])
                 reddit_qs   = cat.get("reddit_queries", [])
@@ -432,18 +473,15 @@ class AmazonDealFinder:
                         summary = entry.get("summary", "") or ""
                         sd_link = entry.get("link", "")
                         key     = title.lower()
-                        if key in seen or not title:
+                        if key in seen_titles or not title:
                             continue
                         if "amazon" not in f"{title} {summary} {sd_link}".lower():
                             continue
                         if not any(kw in title.lower() for kw in cat["keywords"]):
                             continue
-                        # Filtro de edad en Reddit también
                         pub_str = entry.get("published", "")
                         if pub_str:
                             try:
-                                from email.utils import parsedate_to_datetime
-                                from datetime import datetime, timezone
                                 pub_dt = parsedate_to_datetime(pub_str)
                                 age_h = (datetime.now(timezone.utc) - pub_dt).total_seconds() / 3600
                                 if age_h > 4:
@@ -456,6 +494,10 @@ class AmazonDealFinder:
                         amazon_url = self._amazon_url_from_entry(entry) or self._amazon_url_from_page(sd_link)
                         if not amazon_url:
                             continue
+                        asin = _extract_asin(amazon_url)
+                        if asin and asin in seen_asins:
+                            print(f"      🔄 ASIN {asin} ya enviado, omitiendo (Reddit)")
+                            continue
                         img_url, img_bytes = self._image_from_entry(entry)
                         cat_deals.append(Deal(
                             title=title, original_price=orig or sale, sale_price=sale or 0.0,
@@ -463,9 +505,11 @@ class AmazonDealFinder:
                             affiliate_url=add_affiliate_tag(amazon_url, self.affiliate_tag),
                             image_url=img_url, image_bytes=img_bytes,
                             category=cat["name"], category_emoji=cat["emoji"],
-                            source="Reddit",
+                            source="Reddit", asin=asin,
                         ))
-                        seen.add(key)
+                        seen_titles.add(key)
+                        if asin:
+                            seen_asins.add(asin)
                         if len(cat_deals) >= 4:
                             break
                     if len(cat_deals) >= 4:
@@ -477,13 +521,13 @@ class AmazonDealFinder:
         # Relleno genérico
         if len(deals) < count:
             print("   Buscando deals generales de Amazon…")
-            for term in ["amazon deal 50% off", "amazon clearance sale"]:
+            for term in ["amazon deal 50% off", "amazon clearance sale", "amazon lightning deal"]:
                 for entry in self._fetch_rss(term):
                     title   = entry.get("title", "").strip()
                     summary = entry.get("summary", "")
                     sd_link = entry.get("link", "")
                     key     = title.lower()
-                    if key in seen or not title:
+                    if key in seen_titles or not title:
                         continue
                     if "amazon" not in f"{title} {summary} {sd_link}".lower():
                         continue
@@ -493,15 +537,20 @@ class AmazonDealFinder:
                     amazon_url = self._amazon_url_from_entry(entry) or self._amazon_url_from_page(sd_link)
                     if not amazon_url:
                         continue
+                    asin = _extract_asin(amazon_url)
+                    if asin and asin in seen_asins:
+                        continue
                     img_url, img_bytes = self._image_from_entry(entry)
                     deals.append(Deal(
                         title=title, original_price=orig or sale, sale_price=sale or 0.0,
                         discount_pct=disc, product_url=amazon_url,
                         affiliate_url=add_affiliate_tag(amazon_url, self.affiliate_tag),
                         image_url=img_url, image_bytes=img_bytes,
-                        category="Oferta General", category_emoji="🛒",
+                        category="Oferta General", category_emoji="🛒", asin=asin,
                     ))
-                    seen.add(key)
+                    seen_titles.add(key)
+                    if asin:
+                        seen_asins.add(asin)
                     if len(deals) >= count:
                         break
                 if len(deals) >= count:
