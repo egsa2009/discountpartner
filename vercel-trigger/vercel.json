@@ -1,14 +1,4 @@
 {
   "version": 2,
-  "buildCommand": "",
-  "outputDirectory": "public",
-  "functions": {
-    "api/trigger.js": {
-      "runtime": "nodejs20.x"
-    }
-  },
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/(.*)", "dest": "/public/$1" }
-  ]
+  "outputDirectory": "public"
 }
