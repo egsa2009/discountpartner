@@ -8,15 +8,17 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0f0f0f;
-      --surface: #1a1a1a;
-      --border: #2a2a2a;
-      --accent: #f97316;
-      --accent-dim: rgba(249,115,22,0.15);
-      --text: #f0f0f0;
-      --muted: #888;
-      --green: #22c55e;
-      --red: #ef4444;
+      --bg:         #0c0c0e;
+      --surface:    #161618;
+      --surface2:   #1e1e21;
+      --border:     #2a2a30;
+      --accent:     #f97316;
+      --accent-dim: rgba(249,115,22,0.12);
+      --text:       #f0f0f0;
+      --muted:      #7a7a8a;
+      --green:      #22c55e;
+      --red:        #ef4444;
+      --blue:       #60a5fa;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -24,82 +26,159 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
+      padding: 20px 16px 40px;
     }
+    .wrap { max-width: 440px; margin: 0 auto; }
+
+    /* ── Header ── */
+    .header { text-align: center; padding: 28px 0 24px; }
+    .header .emoji { font-size: 2.4rem; display: block; margin-bottom: 8px; }
+    .header h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
+    .header p  { font-size: 0.78rem; color: var(--muted); margin-top: 3px; }
+
+    /* ── Card ── */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 32px 28px;
-      width: 100%;
-      max-width: 380px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      padding: 24px 20px;
+      margin-bottom: 12px;
     }
-    .logo {
-      font-size: 2.2rem;
-      text-align: center;
-      margin-bottom: 6px;
-    }
-    h1 {
-      font-size: 1.15rem;
-      font-weight: 700;
-      text-align: center;
-      color: var(--text);
-      margin-bottom: 4px;
-    }
-    .subtitle {
-      font-size: 0.78rem;
+    .card-title {
+      font-size: 0.72rem;
+      font-weight: 600;
       color: var(--muted);
-      text-align: center;
-      margin-bottom: 28px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
     }
-    label {
+    .card-title span.badge {
+      background: var(--accent-dim);
+      color: var(--accent);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Inputs ── */
+    label.lbl {
       display: block;
-      font-size: 0.78rem;
+      font-size: 0.74rem;
       font-weight: 500;
       color: var(--muted);
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      margin-bottom: 5px;
     }
-    input[type="password"], input[type="number"] {
+    input[type="password"],
+    input[type="text"],
+    input[type="url"],
+    input[type="number"] {
       width: 100%;
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 10px 14px;
-      font-size: 0.95rem;
+      padding: 10px 12px;
+      font-size: 0.9rem;
       color: var(--text);
       outline: none;
-      transition: border-color 0.2s;
-      margin-bottom: 16px;
+      transition: border-color 0.15s;
       font-family: inherit;
     }
-    input:focus {
-      border-color: var(--accent);
-    }
-    .row {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-    .row > div { flex: 1; }
-    .toggle-label {
+    input:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--border); }
+    .field { margin-bottom: 14px; }
+
+    /* ── URL list ── */
+    .url-row {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 0.85rem;
+      margin-bottom: 8px;
+    }
+    .url-row input { flex: 1; margin: 0; }
+    .url-num {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      width: 16px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .del-btn {
+      background: none;
+      border: none;
       color: var(--muted);
       cursor: pointer;
-      margin-bottom: 24px;
+      padding: 6px;
+      border-radius: 6px;
+      font-size: 1rem;
+      line-height: 1;
+      transition: color 0.15s, background 0.15s;
+      flex-shrink: 0;
+    }
+    .del-btn:hover { color: var(--red); background: rgba(239,68,68,0.1); }
+
+    .add-btn {
+      width: 100%;
+      padding: 9px;
+      background: var(--surface2);
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+      font-family: inherit;
+      margin-top: 4px;
+    }
+    .add-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .tab {
+      flex: 1;
+      padding: 8px 4px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .tab.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ── Toggle ── */
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 0.83rem;
+      color: var(--muted);
+      cursor: pointer;
       user-select: none;
+      margin-top: 2px;
     }
     .toggle-label input { display: none; }
     .toggle {
-      width: 38px; height: 20px;
+      width: 36px; height: 20px;
       background: var(--border);
       border-radius: 10px;
       position: relative;
@@ -115,16 +194,16 @@
       top: 3px; left: 3px;
       transition: transform 0.2s, background 0.2s;
     }
-    .toggle-label input:checked + .toggle {
-      background: var(--accent-dim);
-    }
+    .toggle-label input:checked + .toggle { background: var(--accent-dim); }
     .toggle-label input:checked + .toggle::after {
-      transform: translateX(18px);
+      transform: translateX(16px);
       background: var(--accent);
     }
-    .btn {
+
+    /* ── Main button ── */
+    .btn-main {
       width: 100%;
-      padding: 13px;
+      padding: 14px;
       background: var(--accent);
       color: #fff;
       font-size: 1rem;
@@ -136,138 +215,325 @@
       font-family: inherit;
       letter-spacing: 0.01em;
     }
-    .btn:active { transform: scale(0.97); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn.loading { opacity: 0.7; cursor: wait; }
+    .btn-main:active { transform: scale(0.97); }
+    .btn-main:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── Status ── */
     #status {
-      margin-top: 18px;
+      margin-top: 14px;
       padding: 12px 14px;
       border-radius: 8px;
-      font-size: 0.88rem;
+      font-size: 0.85rem;
       font-weight: 500;
       text-align: center;
       display: none;
+      line-height: 1.5;
     }
-    #status.ok {
-      background: rgba(34,197,94,0.12);
-      color: var(--green);
-      border: 1px solid rgba(34,197,94,0.25);
-      display: block;
-    }
-    #status.err {
-      background: rgba(239,68,68,0.12);
-      color: var(--red);
-      border: 1px solid rgba(239,68,68,0.25);
-      display: block;
-    }
-    .divider {
-      height: 1px;
-      background: var(--border);
-      margin: 24px 0;
-    }
-    .info {
-      font-size: 0.76rem;
-      color: var(--muted);
+    #status.ok  { background: rgba(34,197,94,0.1);  color: var(--green); border: 1px solid rgba(34,197,94,0.2);  display: block; }
+    #status.err { background: rgba(239,68,68,0.1);  color: var(--red);   border: 1px solid rgba(239,68,68,0.2);  display: block; }
+    #status.inf { background: rgba(96,165,250,0.1); color: var(--blue);  border: 1px solid rgba(96,165,250,0.2); display: block; }
+
+    /* ── Footer info ── */
+    .footer-info {
       text-align: center;
-      line-height: 1.6;
+      font-size: 0.73rem;
+      color: var(--muted);
+      line-height: 1.7;
+      padding-top: 8px;
     }
     .dot {
       display: inline-block;
-      width: 8px; height: 8px;
-      background: var(--accent);
+      width: 7px; height: 7px;
+      background: var(--green);
       border-radius: 50%;
-      margin-right: 6px;
-      animation: pulse 1.5s infinite;
+      margin-right: 5px;
+      animation: pulse 2s infinite;
     }
     @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50%       { opacity: 0.3; }
+      0%,100% { opacity:1 } 50% { opacity:.3 }
     }
+
+    /* ── URL counter ── */
+    .url-counter {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-align: right;
+      margin-top: -2px;
+      margin-bottom: 10px;
+    }
+    .url-counter span { color: var(--accent); font-weight: 600; }
+
+    .hint { font-size: 0.73rem; color: var(--muted); line-height: 1.5; margin-bottom: 12px; }
+
+    /* ── Sections (auto mode) ── */
+    .section-auto { display: none; }
+    .section-manual { display: block; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="logo">🛍️</div>
-    <h1>Discount Partner</h1>
-    <p class="subtitle">Panel de control · Telegram Deals</p>
+  <div class="wrap">
+    <div class="header">
+      <span class="emoji">🛍️</span>
+      <h1>Discount Partner</h1>
+      <p>Panel de control · Telegram Deals</p>
+    </div>
 
-    <label for="pwd">Contraseña</label>
-    <input type="password" id="pwd" placeholder="••••••••" autocomplete="current-password" />
-
-    <div class="row">
-      <div>
-        <label for="count">Nº de deals</label>
-        <input type="number" id="count" value="10" min="1" max="30" />
+    <!-- Password -->
+    <div class="card">
+      <div class="card-title">🔐 Acceso</div>
+      <div class="field">
+        <label class="lbl" for="pwd">Contraseña</label>
+        <input type="password" id="pwd" placeholder="••••••••" autocomplete="current-password" />
       </div>
     </div>
 
-    <label class="toggle-label">
-      <input type="checkbox" id="dryRun" />
-      <span class="toggle"></span>
-      Dry run (no envía Telegram)
-    </label>
+    <!-- Mode tabs -->
+    <div class="card">
+      <div class="card-title">
+        Modo
+        <span class="badge">NUEVO</span>
+      </div>
+      <div class="tabs">
+        <button class="tab active" id="tab-manual" onclick="setMode('manual')">
+          🔗 Manual (URLs)
+        </button>
+        <button class="tab" id="tab-auto" onclick="setMode('auto')">
+          🤖 Automático
+        </button>
+      </div>
 
-    <button class="btn" id="runBtn" onclick="triggerPipeline()">
-      ▶ Ejecutar ahora
+      <!-- MANUAL MODE -->
+      <div class="section-manual" id="section-manual">
+        <p class="hint">
+          Busca las ofertas tú mismo en Amazon → copia la URL → pégala aquí.<br>
+          El sistema extrae título, precio e imagen, agrega el link de afiliado y envía a Telegram.
+        </p>
+        <div class="url-counter">URLs: <span id="urlCount">1</span> / 10</div>
+        <div id="urlList">
+          <!-- URLs se agregan dinámicamente -->
+        </div>
+        <button class="add-btn" id="addUrlBtn" onclick="addUrl()">+ Agregar otra URL</button>
+      </div>
+
+      <!-- AUTO MODE -->
+      <div class="section-auto" id="section-auto">
+        <p class="hint">
+          Busca automáticamente en Slickdeals y Reddit deals de ropa, zapatos y tecnología.
+        </p>
+        <div class="field">
+          <label class="lbl" for="count">Número de deals a buscar</label>
+          <input type="number" id="count" value="10" min="1" max="30" />
+        </div>
+        <label class="toggle-label" style="margin-bottom:0">
+          <input type="checkbox" id="dryRun" />
+          <span class="toggle"></span>
+          Dry run (genera imágenes sin enviar a Telegram)
+        </label>
+      </div>
+    </div>
+
+    <!-- Send button -->
+    <button class="btn-main" id="runBtn" onclick="run()">
+      🚀 Procesar y enviar a Telegram
     </button>
 
     <div id="status"></div>
 
-    <div class="divider"></div>
-    <div class="info">
+    <div class="footer-info" style="margin-top:20px">
       <span class="dot"></span>
-      Automatizado: 8:30 · 12:30 · 7:30 PM (COT)<br/>
-      Marcas: Calvin Klein · Tommy · Nike · Adidas · Apple · Sony
+      Auto: 8:30 · 12:30 · 7:30 PM (COT)<br/>
+      Ropa · Zapatos · Tecnología · ≥30% OFF
     </div>
   </div>
 
   <script>
-    async function triggerPipeline() {
-      const btn    = document.getElementById("runBtn");
-      const status = document.getElementById("status");
-      const pwd    = document.getElementById("pwd").value.trim();
-      const count  = parseInt(document.getElementById("count").value) || 10;
-      const dryRun = document.getElementById("dryRun").checked;
+    // ── Estado ───────────────────────────────────────────────────────────────
+    let mode = 'manual';
+    let urlCount = 0;
 
-      if (!pwd) {
-        status.className = "err";
-        status.textContent = "⚠️ Ingresa la contraseña";
+    // ── Inicialización ───────────────────────────────────────────────────────
+    window.onload = () => {
+      addUrl(); // Empezar con 1 campo vacío
+      // Restaurar contraseña de sessionStorage
+      const saved = sessionStorage.getItem('dp_pwd');
+      if (saved) document.getElementById('pwd').value = saved;
+    };
+
+    // ── Modo ─────────────────────────────────────────────────────────────────
+    function setMode(m) {
+      mode = m;
+      document.getElementById('section-manual').style.display = m === 'manual' ? 'block' : 'none';
+      document.getElementById('section-auto').style.display   = m === 'auto'   ? 'block' : 'none';
+      document.getElementById('tab-manual').classList.toggle('active', m === 'manual');
+      document.getElementById('tab-auto').classList.toggle('active',   m === 'auto');
+      const btn = document.getElementById('runBtn');
+      btn.textContent = m === 'manual'
+        ? '🚀 Procesar y enviar a Telegram'
+        : '▶ Ejecutar búsqueda automática';
+      clearStatus();
+    }
+
+    // ── URLs ─────────────────────────────────────────────────────────────────
+    function addUrl() {
+      if (urlCount >= 10) return;
+      urlCount++;
+      updateCounter();
+
+      const row = document.createElement('div');
+      row.className = 'url-row';
+      row.id = `row-${urlCount}`;
+
+      const num = document.createElement('span');
+      num.className = 'url-num';
+      num.textContent = urlCount;
+
+      const inp = document.createElement('input');
+      inp.type = 'url';
+      inp.placeholder = 'https://www.amazon.com/dp/...';
+      inp.id = `url-${urlCount}`;
+      inp.addEventListener('paste', () => {
+        // Auto-focus next field or add new one on paste
+        setTimeout(() => {
+          if (urlCount < 10 && inp.value.trim()) {
+            const nextId = `url-${parseInt(inp.id.split('-')[1]) + 1}`;
+            const nextInp = document.getElementById(nextId);
+            if (!nextInp) addUrl();
+          }
+        }, 100);
+      });
+
+      const del = document.createElement('button');
+      del.className = 'del-btn';
+      del.textContent = '✕';
+      del.title = 'Eliminar';
+      del.onclick = () => removeUrl(row, inp.id);
+
+      row.appendChild(num);
+      row.appendChild(inp);
+      row.appendChild(del);
+      document.getElementById('urlList').appendChild(row);
+
+      document.getElementById('addUrlBtn').disabled = urlCount >= 10;
+      inp.focus();
+    }
+
+    function removeUrl(row, inputId) {
+      if (urlCount <= 1) {
+        document.getElementById(inputId).value = '';
         return;
       }
+      row.remove();
+      urlCount--;
+      // Renumerar
+      const rows = document.querySelectorAll('#urlList .url-row');
+      rows.forEach((r, i) => {
+        r.querySelector('.url-num').textContent = i + 1;
+      });
+      urlCount = rows.length;
+      updateCounter();
+      document.getElementById('addUrlBtn').disabled = false;
+    }
 
-      btn.disabled = true;
-      btn.classList.add("loading");
-      btn.textContent = "⏳ Iniciando…";
-      status.className = "";
-      status.style.display = "none";
+    function updateCounter() {
+      document.getElementById('urlCount').textContent = urlCount;
+    }
 
-      try {
-        const resp = await fetch("/api/trigger", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password: pwd, count, dry_run: dryRun }),
-        });
-        const data = await resp.json();
+    function getUrls() {
+      const inputs = document.querySelectorAll('#urlList input[type="url"]');
+      return Array.from(inputs)
+        .map(i => i.value.trim())
+        .filter(v => v.length > 0 && v.includes('amazon'));
+    }
 
-        if (resp.ok && data.success) {
-          status.className = "ok";
-          status.textContent = `✅ ${data.message} — revisa tu Telegram en ~2 min`;
-          btn.textContent = "✓ Lanzado";
-        } else {
-          throw new Error(data.error || "Error desconocido");
+    // ── Status ───────────────────────────────────────────────────────────────
+    function showStatus(msg, type) {
+      const el = document.getElementById('status');
+      el.className = type;
+      el.innerHTML = msg;
+    }
+    function clearStatus() {
+      const el = document.getElementById('status');
+      el.className = '';
+      el.style.display = 'none';
+    }
+
+    // ── Run ──────────────────────────────────────────────────────────────────
+    async function run() {
+      const btn  = document.getElementById('runBtn');
+      const pwd  = document.getElementById('pwd').value.trim();
+
+      if (!pwd) { showStatus('⚠️ Ingresa la contraseña', 'err'); return; }
+      sessionStorage.setItem('dp_pwd', pwd);
+
+      if (mode === 'manual') {
+        const urls = getUrls();
+        if (urls.length === 0) {
+          showStatus('⚠️ Pega al menos una URL de Amazon', 'err');
+          return;
         }
-      } catch (err) {
-        status.className = "err";
-        status.textContent = `❌ ${err.message}`;
-        btn.disabled = false;
-        btn.classList.remove("loading");
-        btn.textContent = "▶ Ejecutar ahora";
+        await runManual(btn, pwd, urls);
+      } else {
+        const count  = parseInt(document.getElementById('count').value) || 10;
+        const dryRun = document.getElementById('dryRun').checked;
+        await runAuto(btn, pwd, count, dryRun);
       }
     }
 
-    // Permitir Enter en el campo de contraseña
-    document.getElementById("pwd").addEventListener("keydown", e => {
-      if (e.key === "Enter") triggerPipeline();
+    async function runManual(btn, pwd, urls) {
+      btn.disabled = true;
+      btn.textContent = '⏳ Procesando…';
+      showStatus(`🔍 Procesando ${urls.length} URL${urls.length > 1 ? 's' : ''}…`, 'inf');
+
+      try {
+        const resp = await fetch('/api/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pwd, mode: 'manual', urls }),
+        });
+        const data = await resp.json();
+        if (resp.ok && data.success) {
+          showStatus(`✅ ${data.message}<br><small>Revisa Telegram en ~2 min 📲</small>`, 'ok');
+          btn.textContent = '✓ Enviado';
+          btn.disabled = false;
+        } else {
+          throw new Error(data.error || 'Error desconocido');
+        }
+      } catch (err) {
+        showStatus(`❌ ${err.message}`, 'err');
+        btn.disabled = false;
+        btn.textContent = '🚀 Procesar y enviar a Telegram';
+      }
+    }
+
+    async function runAuto(btn, pwd, count, dryRun) {
+      btn.disabled = true;
+      btn.textContent = '⏳ Iniciando…';
+      showStatus('🤖 Buscando deals automáticamente…', 'inf');
+
+      try {
+        const resp = await fetch('/api/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pwd, mode: 'auto', count, dry_run: dryRun }),
+        });
+        const data = await resp.json();
+        if (resp.ok && data.success) {
+          showStatus(`✅ ${data.message}<br><small>Revisa Telegram en ~2 min 📲</small>`, 'ok');
+          btn.textContent = '✓ Lanzado';
+          btn.disabled = false;
+        } else {
+          throw new Error(data.error || 'Error desconocido');
+        }
+      } catch (err) {
+        showStatus(`❌ ${err.message}`, 'err');
+        btn.disabled = false;
+        btn.textContent = '▶ Ejecutar búsqueda automática';
+      }
+    }
+
+    // Enter en contraseña
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.target.id === 'pwd') run();
     });
   </script>
 </body>

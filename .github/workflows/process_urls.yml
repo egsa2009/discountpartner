@@ -1,0 +1,44 @@
+name: Discount Partner — Procesar URLs Manuales
+
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: 'URLs de Amazon separadas por coma (máx. 10)'
+        required: true
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install feedparser beautifulsoup4 requests pillow --break-system-packages -q
+
+      - name: Procesar URLs y enviar a Telegram
+        env:
+          PRODUCT_URLS:        ${{ github.event.inputs.urls }}
+          AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
+          TELEGRAM_TOKEN:       ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID:     ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python process_urls.py
+
+      - name: Upload resultados e imágenes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: manual-deals-${{ github.run_number }}
+          path: |
+            deals_output.json
+            instagram_posts/
+          if-no-files-found: ignore
