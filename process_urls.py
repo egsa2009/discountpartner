@@ -1,7 +1,7 @@
 """
-process_urls.py v3 — Procesa deals con precios provistos manualmente por el usuario.
-Recibe PRODUCT_DEALS como JSON: [{url, sale_price, orig_price, discount_pct}, ...]
-Extrae título e imagen de Amazon (best-effort), genera imagen Instagram, envía a Telegram.
+process_urls.py v4 — Scraping Amazon via ScraperAPI (bypass de bloqueo por IP).
+Recibe PRODUCT_DEALS como JSON: [{url, sale_price?, orig_price?, discount_pct?}, ...]
+Los precios del usuario son opcionales — si no se dan, se extraen de Amazon via ScraperAPI.
 """
 
 import io
@@ -12,6 +12,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote_plus
 
 import requests
 from bs4 import BeautifulSoup
@@ -23,27 +24,34 @@ except ImportError as e:
     print(f"❌ Error importando módulos: {e}")
     sys.exit(1)
 
-# ─── Configuración ──────────────────────────────────────────────────────────
+# ─── Config ──────────────────────────────────────────────────────────────────
+
+SCRAPER_KEY   = os.environ.get("SCRAPER_API_KEY", "")
+AFFILIATE_TAG = os.environ.get("AMAZON_AFFILIATE_TAG", "discountpartn-20")
+TG_TOKEN      = os.environ.get("TELEGRAM_TOKEN", "")
+TG_CHAT_ID    = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
-        "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-    ),
-    "Accept-Language":  "es-CO,es;q=0.9,en;q=0.8",
-    "Accept":           "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Encoding":  "gzip, deflate, br",
-    "DNT":              "1",
-    "Connection":       "keep-alive",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
 }
+
+# ─── ScraperAPI ──────────────────────────────────────────────────────────────
+
+def scraper_url(url: str) -> str:
+    """Envuelve la URL con ScraperAPI si hay key disponible."""
+    if SCRAPER_KEY:
+        return f"https://api.scraperapi.com?api_key={SCRAPER_KEY}&url={quote_plus(url)}"
+    return url  # fallback sin proxy (puede fallar en GitHub Actions)
 
 # ─── Telegram helpers ────────────────────────────────────────────────────────
 
-def send_telegram_text(token: str, chat_id: str, text: str) -> bool:
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
+def send_telegram_text(text: str) -> bool:
+    url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
     try:
         r = requests.post(url, json={
-            "chat_id": chat_id, "text": text,
+            "chat_id": TG_CHAT_ID, "text": text,
             "parse_mode": "HTML", "disable_web_page_preview": True,
         }, timeout=15)
         return r.json().get("ok", False)
@@ -51,42 +59,36 @@ def send_telegram_text(token: str, chat_id: str, text: str) -> bool:
         print(f"   ⚠️  Telegram text error: {e}")
         return False
 
-def send_telegram_photo(token: str, chat_id: str, img_bytes: bytes, caption: str) -> bool:
-    url = f"https://api.telegram.org/bot{token}/sendPhoto"
+def send_telegram_photo(img_bytes: bytes, caption: str) -> bool:
+    url = f"https://api.telegram.org/bot{TG_TOKEN}/sendPhoto"
     try:
         r = requests.post(url, data={
-            "chat_id": chat_id, "caption": caption[:1024], "parse_mode": "HTML",
+            "chat_id": TG_CHAT_ID, "caption": caption[:1024], "parse_mode": "HTML",
         }, files={"photo": ("deal.jpg", img_bytes, "image/jpeg")}, timeout=30)
         return r.json().get("ok", False)
     except Exception as e:
         print(f"   ⚠️  Telegram photo error: {e}")
         return False
 
-# ─── Amazon scraper (best-effort) ───────────────────────────────────────────
+# ─── Amazon scraper (via ScraperAPI) ─────────────────────────────────────────
 
 def _price(text: str) -> float:
     m = re.search(r"\$?([\d,]+\.?\d*)", text.replace(",", ""))
-    if m:
-        try:
-            return float(m.group(1))
-        except Exception:
-            pass
-    return 0.0
+    return float(m.group(1)) if m else 0.0
 
 def _clean(text: str) -> str:
     return " ".join(text.split()).strip()
 
 def fetch_amazon_product(url: str, session: requests.Session) -> dict:
-    """
-    Intenta extraer título e imagen de Amazon (best-effort).
-    Los precios NO se intentan extraer aquí — los provee el usuario.
-    """
+    """Scraping completo via ScraperAPI: título, precios, imagen."""
     result = {
-        "title": "", "image_url": "", "image_bytes": b"", "error": None,
+        "title": "", "sale_price": 0.0, "original_price": 0.0,
+        "discount_pct": 0, "image_url": "", "image_bytes": b"", "error": None,
     }
     try:
-        time.sleep(1.5)
-        resp = session.get(url, timeout=20, allow_redirects=True)
+        time.sleep(1.0)
+        fetch_url = scraper_url(url)
+        resp = session.get(fetch_url, timeout=30, allow_redirects=True)
         if resp.status_code != 200:
             result["error"] = f"HTTP {resp.status_code}"
             return result
@@ -94,37 +96,78 @@ def fetch_amazon_product(url: str, session: requests.Session) -> dict:
         soup = BeautifulSoup(resp.text, "html.parser")
 
         # ── Título ──────────────────────────────────────────────────────────
-        for selector in [
-            ("span", {"id": "productTitle"}),
-            ("h1",   {"id": "title"}),
-            ("h1",   {"class": "a-size-large"}),
-        ]:
-            el = soup.find(*selector)
+        for sel, attrs in [("span", {"id": "productTitle"}), ("h1", {"id": "title"})]:
+            el = soup.find(sel, attrs)
             if el:
                 t = _clean(el.get_text())
                 if len(t) > 5:
                     result["title"] = t
                     break
 
-        # ── Imagen ──────────────────────────────────────────────────────────
+        # ── Precio de venta ──────────────────────────────────────────────────
+        for selector in [
+            "#priceblock_dealprice", "#priceblock_saleprice",
+            ".a-price .a-offscreen", "#price_inside_buybox",
+            "#priceblock_ourprice", ".apexPriceToPay .a-offscreen",
+            ".reinventPricePriceToPayMargin .a-offscreen",
+        ]:
+            el = soup.select_one(selector)
+            if el:
+                p = _price(el.get_text())
+                if p > 0:
+                    result["sale_price"] = p
+                    break
+
+        # ── Precio original (tachado) ────────────────────────────────────────
+        for selector in [
+            ".a-text-strike", ".basisPrice .a-offscreen",
+            ".priceBlockStrikePriceString",
+            ".a-price[data-a-strike='true'] .a-offscreen",
+        ]:
+            el = soup.select_one(selector)
+            if el:
+                p = _price(el.get_text())
+                if p > 0 and p != result["sale_price"]:
+                    result["original_price"] = p
+                    break
+
+        # ── Descuento ────────────────────────────────────────────────────────
+        if result["sale_price"] > 0 and result["original_price"] > result["sale_price"]:
+            result["discount_pct"] = int(round(
+                (1 - result["sale_price"] / result["original_price"]) * 100
+            ))
+        else:
+            for selector in [".savingsPercentage", "#savingsPercentage"]:
+                el = soup.select_one(selector)
+                if el:
+                    m = re.search(r"(\d+)\s*%", el.get_text())
+                    if m:
+                        result["discount_pct"] = int(m.group(1))
+                        if result["sale_price"] > 0 and result["original_price"] == 0:
+                            result["original_price"] = round(
+                                result["sale_price"] / (1 - result["discount_pct"] / 100), 2
+                            )
+                        break
+
+        if result["sale_price"] > 0 and result["original_price"] == 0:
+            result["original_price"] = result["sale_price"]
+
+        # ── Imagen ───────────────────────────────────────────────────────────
         img_url = ""
         for img_id in ["landingImage", "imgBlkFront", "main-image"]:
             img_el = soup.find("img", {"id": img_id})
             if img_el:
-                img_url = (img_el.get("data-old-hires") or
-                           img_el.get("data-a-hires") or
-                           img_el.get("src", ""))
+                img_url = (img_el.get("data-old-hires") or img_el.get("data-a-hires") or "")
                 if not img_url or "data:" in img_url:
-                    dynamic = img_el.get("data-a-dynamic-image", "{}")
+                    dyn = img_el.get("data-a-dynamic-image", "{}")
                     try:
-                        imgs = json.loads(dynamic)
+                        imgs = json.loads(dyn)
                         if imgs:
                             img_url = max(imgs, key=lambda u: imgs[u][0])
                     except Exception:
-                        pass
+                        img_url = img_el.get("src", "")
                 if img_url and img_url.startswith("http"):
                     break
-
         if not img_url:
             og = soup.find("meta", property="og:image")
             if og:
@@ -133,27 +176,26 @@ def fetch_amazon_product(url: str, session: requests.Session) -> dict:
         if img_url and img_url.startswith("http"):
             result["image_url"] = img_url
             try:
-                r_img = session.get(img_url, timeout=10)
+                r_img = session.get(img_url, timeout=15)
                 if r_img.status_code == 200 and len(r_img.content) > 2000:
                     result["image_bytes"] = r_img.content
             except Exception as e:
                 print(f"      ⚠️  Error descargando imagen: {e}")
 
         if not result["title"]:
-            result["error"] = "Título no encontrado (Amazon bloqueó el acceso)"
+            result["error"] = "No se pudo extraer el título"
 
     except Exception as e:
         result["error"] = str(e)
 
     return result
 
-# ─── Caption de Telegram ────────────────────────────────────────────────────
+# ─── Caption Telegram ────────────────────────────────────────────────────────
 
 def make_caption(index: int, title: str, sale_price: float, original_price: float,
-                 discount_pct: int, affiliate_url: str, asin: str,
-                 affiliate_tag: str) -> str:
+                 discount_pct: int, affiliate_url: str, asin: str) -> str:
     title_short = title[:120] + ("…" if len(title) > 120 else "")
-    short_url = f"https://www.amazon.com/dp/{asin}?tag={affiliate_tag}" if asin else affiliate_url
+    short_url = f"https://www.amazon.com/dp/{asin}?tag={AFFILIATE_TAG}" if asin else affiliate_url
     savings   = max(0.0, original_price - sale_price) if original_price > sale_price else 0
 
     cat_lower = title.lower()
@@ -176,14 +218,10 @@ def make_caption(index: int, title: str, sale_price: float, original_price: floa
     colombia_url = (
         f"https://www.amazon.com/s?k={brand_query}"
         f"&i=fashion&deals-widget=%7B%22version%22%3A1%7D"
-        f"&ship-to-country=CO&tag={affiliate_tag}"
+        f"&ship-to-country=CO&tag={AFFILIATE_TAG}"
     )
 
-    lines = [
-        f"{emoji} <b>OFERTA #{index} — {cat_name}</b>",
-        f"📦 {title_short}",
-        "",
-    ]
+    lines = [f"{emoji} <b>OFERTA #{index} — {cat_name}</b>", f"📦 {title_short}", ""]
     if discount_pct > 0 and sale_price > 0:
         lines += [
             f"💰 <s>${original_price:.2f}</s> → <b>${sale_price:.2f}</b>",
@@ -192,54 +230,42 @@ def make_caption(index: int, title: str, sale_price: float, original_price: floa
         ]
     elif sale_price > 0:
         lines += [f"💰 <b>${sale_price:.2f}</b>", ""]
-
-    lines += [
-        f"🛒 <b>Comprar:</b> {short_url}",
-        f"🌎 <b>Buscar en Amazon Colombia:</b> {colombia_url}",
-    ]
+    lines += [f"🛒 <b>Comprar:</b> {short_url}", f"🌎 <b>Amazon Colombia:</b> {colombia_url}"]
     return "\n".join(lines)
 
 # ─── Pipeline ────────────────────────────────────────────────────────────────
 
 def run_url_pipeline():
     print("\n" + "═" * 55)
-    print("   🔗  Discount Partner — Modo Manual v3")
-    print(f"   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} COT")
+    print("   🔗  Discount Partner — Manual v4 + ScraperAPI")
+    print(f"   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"   ScraperAPI: {'✅ activo' if SCRAPER_KEY else '❌ sin key'}")
     print("═" * 55 + "\n")
 
-    deals_raw     = os.environ.get("PRODUCT_DEALS", "")
-    tg_token      = os.environ.get("TELEGRAM_TOKEN", "")
-    tg_chat_id    = os.environ.get("TELEGRAM_CHAT_ID", "")
-    affiliate_tag = os.environ.get("AMAZON_AFFILIATE_TAG", "discountpartn-20")
-
+    deals_raw = os.environ.get("PRODUCT_DEALS", "")
     if not deals_raw:
-        print("❌ No se recibieron deals (PRODUCT_DEALS vacío)")
+        print("❌ PRODUCT_DEALS vacío")
         sys.exit(1)
-    if not tg_token or not tg_chat_id:
+    if not TG_TOKEN or not TG_CHAT_ID:
         print("❌ Faltan TELEGRAM_TOKEN o TELEGRAM_CHAT_ID")
         sys.exit(1)
 
     try:
         deal_list = json.loads(deals_raw)
         if not isinstance(deal_list, list):
-            raise ValueError("PRODUCT_DEALS debe ser un array JSON")
+            raise ValueError("Debe ser array JSON")
     except Exception as e:
         print(f"❌ Error parseando PRODUCT_DEALS: {e}")
         sys.exit(1)
 
-    # Filtrar URLs válidas
     def _is_amz(u):
         u = u.lower()
         return any(d in u for d in ["amazon", "amzn.to", "a.co/d/"])
 
     deal_list = [d for d in deal_list if d.get("url") and _is_amz(d["url"])]
-    print(f"📋 {len(deal_list)} deal(s) recibido(s):\n")
+    print(f"📋 {len(deal_list)} deal(s) recibido(s):")
     for i, d in enumerate(deal_list, 1):
-        sp = d.get("sale_price", 0) or 0
-        op = d.get("orig_price", 0) or 0
-        dc = d.get("discount_pct", 0) or 0
-        prices_str = f"${sp:.2f}" + (f" / ${op:.2f} ({dc}% OFF)" if dc else "")
-        print(f"   {i}. {d['url'][:70]}  {prices_str}")
+        print(f"   {i}. {d['url'][:80]}")
 
     session = requests.Session()
     session.headers.update(HEADERS)
@@ -255,66 +281,54 @@ def run_url_pipeline():
         f"─────────────────────────\n"
         f"Selección manual · Link afiliado incluido"
     )
-    send_telegram_text(tg_token, tg_chat_id, header)
+    send_telegram_text(header)
     time.sleep(1)
 
-    sent    = 0
-    results = []
+    sent, results = 0, []
 
     for i, deal in enumerate(deal_list, 1):
-        product_url  = deal["url"]
-        sale_price   = float(deal.get("sale_price") or 0)
-        orig_price   = float(deal.get("orig_price") or 0)
-        discount_pct = int(deal.get("discount_pct") or 0)
+        product_url = deal["url"]
+        # Precios provistos por el usuario (opcionales)
+        user_sale = float(deal.get("sale_price") or 0)
+        user_orig = float(deal.get("orig_price") or 0)
+        user_disc = int(deal.get("discount_pct") or 0)
 
-        print(f"\n── Producto #{i} ─────────────────────────────────")
-        print(f"   URL: {product_url[:70]}…" if len(product_url) > 70 else f"   URL: {product_url}")
-
+        print(f"\n── Producto #{i} ────────────────────────────────")
+        print(f"   URL: {product_url[:70]}")
         asin = _extract_asin(product_url)
         print(f"   ASIN: {asin or '(no encontrado)'}")
 
-        # Calcular descuento si faltan datos
+        # Scraping via ScraperAPI
+        print("   🔍 Scrapeando Amazon via ScraperAPI…")
+        data = fetch_amazon_product(product_url, session)
+
+        if data["error"]:
+            print(f"   ⚠️  {data['error']}")
+
+        title = data["title"] or "Oferta Amazon"
+        print(f"   📦 {title[:70]}")
+
+        # Precios: usuario > scraped
+        sale_price   = user_sale   if user_sale   > 0 else data["sale_price"]
+        orig_price   = user_orig   if user_orig   > 0 else data["original_price"]
+        discount_pct = user_disc   if user_disc   > 0 else data["discount_pct"]
+
+        # Calcular descuento si tenemos ambos precios
         if sale_price > 0 and orig_price > sale_price and discount_pct == 0:
             discount_pct = int(round((1 - sale_price / orig_price) * 100))
         if sale_price > 0 and discount_pct > 0 and orig_price == 0:
             orig_price = round(sale_price / (1 - discount_pct / 100), 2)
 
-        # Extraer título e imagen de Amazon (best-effort)
-        print("   🔍 Intentando obtener título e imagen de Amazon…")
-        data = fetch_amazon_product(product_url, session)
-
-        title     = data["title"]
         img_bytes = data["image_bytes"]
         img_url   = data["image_url"]
-
-        if data["error"]:
-            print(f"   ⚠️  Scraping: {data['error']}")
-
-        # Fallback de título si Amazon bloquea
-        if not title:
-            if asin:
-                title = f"Producto Amazon (ASIN: {asin})"
-            else:
-                title = "Oferta Seleccionada en Amazon"
-            print(f"   ℹ️  Usando título de respaldo: {title}")
-        else:
-            print(f"   📦 {title[:70]}")
-
         print(f"   💰 ${sale_price:.2f} (original: ${orig_price:.2f}, {discount_pct}% OFF)")
-        print(f"   🖼️  Imagen: {'✅ ' + str(len(img_bytes)//1024) + ' KB' if img_bytes else '❌ sin imagen'}")
+        print(f"   🖼️  {'✅ ' + str(len(img_bytes)//1024) + ' KB' if img_bytes else '❌ sin imagen'}")
 
-        # URL afiliado
         clean_url     = f"https://www.amazon.com/dp/{asin}" if asin else product_url
-        affiliate_url = add_affiliate_tag(clean_url, affiliate_tag)
+        affiliate_url = add_affiliate_tag(clean_url, AFFILIATE_TAG)
+        caption = make_caption(i, title, sale_price, orig_price, discount_pct, affiliate_url, asin)
 
-        # Caption
-        caption = make_caption(
-            index=i, title=title, sale_price=sale_price,
-            original_price=orig_price, discount_pct=discount_pct,
-            affiliate_url=affiliate_url, asin=asin, affiliate_tag=affiliate_tag,
-        )
-
-        # Crear imagen Instagram
+        # Imagen Instagram
         post_bytes = b""
         if sale_price > 0:
             try:
@@ -330,42 +344,38 @@ def run_url_pipeline():
                 buf = io.BytesIO()
                 img_canvas.save(buf, "JPEG", quality=92)
                 post_bytes = buf.getvalue()
-                print(f"   🎨 Imagen Instagram generada: {len(post_bytes)//1024} KB")
+                print(f"   🎨 Imagen Instagram: {len(post_bytes)//1024} KB")
             except Exception as e:
-                print(f"   ⚠️  Error generando imagen Instagram: {e}")
+                print(f"   ⚠️  Error imagen Instagram: {e}")
 
         # Enviar a Telegram
         if post_bytes:
-            ok = send_telegram_photo(tg_token, tg_chat_id, post_bytes, caption)
+            ok = send_telegram_photo(post_bytes, caption)
         elif img_bytes:
-            ok = send_telegram_photo(tg_token, tg_chat_id, img_bytes, caption)
+            ok = send_telegram_photo(img_bytes, caption)
         else:
-            ok = send_telegram_text(tg_token, tg_chat_id, caption)
+            ok = send_telegram_text(caption)
 
+        status = "✅" if ok else "❌"
+        print(f"   {status} Telegram")
         if ok:
-            print(f"   ✅ Enviado a Telegram")
             sent += 1
-        else:
-            print(f"   ❌ Error enviando a Telegram")
 
         results.append({
-            "url": product_url, "asin": asin,
-            "title": title, "sale_price": sale_price,
-            "orig_price": orig_price, "discount_pct": discount_pct,
-            "image_found": bool(img_bytes), "affiliate_url": affiliate_url, "sent": ok,
+            "url": product_url, "asin": asin, "title": title,
+            "sale_price": sale_price, "orig_price": orig_price, "discount_pct": discount_pct,
+            "image_found": bool(img_bytes), "sent": ok,
         })
         time.sleep(0.8)
 
     print(f"\n{'═'*55}")
-    print(f"✨ Completado: {sent}/{len(deal_list)} productos enviados a Telegram")
+    print(f"✨ {sent}/{len(deal_list)} productos enviados a Telegram")
 
-    out = {
-        "generated_at": datetime.now().isoformat(),
-        "mode": "manual_v3", "sent": sent, "total": len(deal_list),
-        "results": results,
-    }
     Path(__file__).parent.joinpath("deals_output.json").write_text(
-        json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps({"generated_at": datetime.now().isoformat(),
+                    "mode": "manual_v4", "sent": sent,
+                    "total": len(deal_list), "results": results},
+                   ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
 if __name__ == "__main__":

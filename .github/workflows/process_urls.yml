@@ -28,6 +28,7 @@ jobs:
       - name: Procesar deals y enviar a Telegram
         env:
           PRODUCT_DEALS:        ${{ github.event.inputs.deals }}
+          SCRAPER_API_KEY:      ${{ secrets.SCRAPER_API_KEY }}
           AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
           TELEGRAM_TOKEN:       ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID:     ${{ secrets.TELEGRAM_CHAT_ID }}
