@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 from dataclasses import dataclass, field
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+from email.utils import parsedate_to_datetime
 
 
 # ─── Marcas objetivo ────────────────────────────────────────────────────────
@@ -203,9 +204,8 @@ class AmazonDealFinder:
 
     def _image_from_entry(self, entry) -> tuple[str, bytes]:
         """
-        Extrae la imagen del producto desde el RSS entry de Slickdeals.
-        El CDN de Slickdeals NO está bloqueado en GitHub Actions.
-        Busca en: media_content, media_thumbnail, <img> en summary.
+        Extrae la imagen del producto desde el RSS entry o la página del deal.
+        Orden: media_content → media_thumbnail → <img> en summary → og:image en página SD.
         """
         def _download(url: str) -> bytes:
             try:
@@ -236,23 +236,34 @@ class AmazonDealFinder:
         html = entry.get("summary", "") or entry.get("description", "")
         if html:
             soup = BeautifulSoup(html, "html.parser")
-            candidates = []
             for img in soup.find_all("img"):
                 src = img.get("src") or img.get("data-src") or ""
-                if src.startswith("http"):
-                    candidates.append(src)
-
-            # Priorizar imágenes de CDN de producto (cloudfront, etc.) sobre avatares
-            for src in candidates:
-                if any(ext in src.lower() for ext in [".jpg", ".jpeg", ".png", ".webp"]):
+                if src.startswith("http") and any(x in src.lower() for x in [".jpg", ".jpeg", ".png", ".webp"]):
                     data = _download(src)
                     if data:
                         return src, data
-            # Segunda pasada sin filtro de extensión
-            for src in candidates:
-                data = _download(src)
-                if data:
-                    return src, data
+
+        # 4. og:image en la página del deal de Slickdeals
+        sd_link = entry.get("link", "")
+        if sd_link and "slickdeals.net" in sd_link:
+            try:
+                resp = self.session.get(sd_link, timeout=10)
+                page_soup = BeautifulSoup(resp.text, "html.parser")
+                # og:image (la mejor imagen del deal)
+                og = page_soup.find("meta", property="og:image")
+                if og and og.get("content","").startswith("http"):
+                    data = _download(og["content"])
+                    if data:
+                        return og["content"], data
+                # imagen principal del producto en la página
+                for img in page_soup.find_all("img"):
+                    src = img.get("src","")
+                    if src.startswith("http") and any(x in src for x in ["images-na", "m.media-amazon", "cloudfront", "ssl-images"]):
+                        data = _download(src)
+                        if data:
+                            return src, data
+            except Exception as e:
+                print(f"      ⚠️  Error buscando imagen en página SD: {e}")
 
         return "", b""
 
@@ -328,8 +339,27 @@ class AmazonDealFinder:
                     if not any(kw in title.lower() for kw in cat["keywords"]):
                         continue
 
+                    # ── Filtro de antigüedad: solo deals de últimas 24 horas ──
+                    pub_str = entry.get("published", "")
+                    if pub_str:
+                        try:
+                            from email.utils import parsedate_to_datetime
+                            from datetime import datetime, timezone
+                            pub_dt = parsedate_to_datetime(pub_str)
+                            age_h = (datetime.now(timezone.utc) - pub_dt).total_seconds() / 3600
+                            if age_h > 24:
+                                print(f"      ⏰ Deal expirado ({age_h:.0f}h): {title[:40]}")
+                                continue
+                        except Exception:
+                            pass  # Sin fecha → incluir igual
+
                     orig, sale, disc = extract_prices(f"{title} {summary}")
                     if disc is None or disc < self.min_discount:
+                        continue
+                    # Si el precio en el título tiene "*" → coupon/clip, descuento puede ser irreal
+                    # Solo rechazar si el descuento calculado es absurdo (> 90%)
+                    if disc > 90 and "*" in title:
+                        print(f"      ⚠️  Precio coupon irreal ({disc}%*): {title[:40]}")
                         continue
 
                     # URL de Amazon
