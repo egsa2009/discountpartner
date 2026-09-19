@@ -1,12 +1,16 @@
 """
-deal_finder.py v8 — Slickdeals RSS (sin CAPTCHA de Amazon)
-Busca ofertas de Amazon vía Slickdeals RSS y agrega tag de afiliado.
+deal_finder.py v9 — Slickdeals RSS → Amazon URL real + imagen del producto
+- Extrae la URL real de Amazon desde la página de Slickdeals
+- Añade tag de afiliado a la URL de Amazon
+- Descarga la imagen del producto para Instagram
 """
 
+import io
 import re
 import time
 import feedparser
 import requests
+from bs4 import BeautifulSoup
 from dataclasses import dataclass, field
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
@@ -22,8 +26,13 @@ CATEGORIES = [
             "calvin klein", "tommy hilfiger", "lacoste", "armani", "ralph lauren",
             "boss", "versace", "gucci", "puma", "champion", "fila", "levis",
         ],
-        "search_terms": ["calvin klein amazon", "tommy hilfiger amazon",
-                         "lacoste amazon", "ralph lauren amazon", "armani amazon"],
+        "search_terms": [
+            "calvin klein amazon",
+            "tommy hilfiger amazon",
+            "lacoste amazon",
+            "ralph lauren amazon",
+            "armani amazon",
+        ],
     },
     {
         "name": "Zapatos Deportivos",
@@ -32,8 +41,13 @@ CATEGORIES = [
             "nike", "adidas", "new balance", "on cloud", "under armour",
             "reebok", "asics", "skechers", "hoka", "brooks", "vans", "converse",
         ],
-        "search_terms": ["nike amazon", "adidas amazon", "new balance amazon",
-                         "under armour amazon", "hoka amazon"],
+        "search_terms": [
+            "nike shoes amazon",
+            "adidas shoes amazon",
+            "new balance amazon",
+            "under armour amazon",
+            "hoka amazon",
+        ],
     },
     {
         "name": "Tecnología",
@@ -43,10 +57,24 @@ CATEGORIES = [
             "sony", "nintendo", "dell", "hp", "asus", "bose", "jabra", "logitech",
             "kindle", "echo", "fire tv", "pixel",
         ],
-        "search_terms": ["apple amazon", "samsung amazon", "sony amazon",
-                         "nintendo amazon", "lenovo amazon", "bose amazon"],
+        "search_terms": [
+            "apple amazon deal",
+            "samsung amazon deal",
+            "sony amazon deal",
+            "nintendo amazon deal",
+            "lenovo amazon deal",
+        ],
     },
 ]
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 
 # ─── Dataclass Deal ─────────────────────────────────────────────────────────
@@ -57,18 +85,26 @@ class Deal:
     original_price: float
     sale_price: float
     discount_pct: int
-    product_url: str
-    affiliate_url: str
+    product_url: str          # URL real de Amazon
+    affiliate_url: str        # Con tag de afiliado
     category: str
     category_emoji: str
+    image_url: str = ""       # URL de la imagen del producto
+    image_bytes: bytes = field(default=b"", repr=False)
     source: str = "Slickdeals"
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
     def savings(self) -> float:
         return max(0.0, self.original_price - self.sale_price)
 
-    def telegram_msg(self, index: int) -> str:
+    def telegram_caption(self, index: int) -> str:
         title_short = self.title[:120] + ("…" if len(self.title) > 120 else "")
+        short_url = self.affiliate_url
+        # Acortar URL larga para Telegram
+        if len(short_url) > 100:
+            asin = _extract_asin(self.product_url)
+            if asin:
+                short_url = f"https://www.amazon.com/dp/{asin}?tag={_tag_from_url(self.affiliate_url)}"
         lines = [
             f"{self.category_emoji} <b>OFERTA #{index} — {self.category}</b>",
             f"📦 {title_short}",
@@ -76,9 +112,15 @@ class Deal:
             f"💰 <s>${self.original_price:.2f}</s> → <b>${self.sale_price:.2f}</b>",
             f"🔥 <b>{self.discount_pct}% OFF</b> — Ahorras ${self.savings():.2f}",
             "",
-            f"🔗 {self.affiliate_url}",
+            f"🔗 {short_url}",
+            "",
+            f"✈️ <i>Verifica envío a Colombia en Amazon Global</i>",
         ]
         return "\n".join(lines)
+
+    # Mantener compatibilidad con run_pipeline.py antiguo
+    def telegram_msg(self, index: int) -> str:
+        return self.telegram_caption(index)
 
     def to_dict(self) -> dict:
         return {
@@ -88,6 +130,7 @@ class Deal:
             "discount_pct": self.discount_pct,
             "product_url": self.product_url,
             "affiliate_url": self.affiliate_url,
+            "image_url": self.image_url,
             "category": self.category,
             "category_emoji": self.category_emoji,
             "source": self.source,
@@ -96,6 +139,22 @@ class Deal:
 
 
 # ─── Utilidades ─────────────────────────────────────────────────────────────
+
+def _extract_asin(url: str) -> str:
+    for pat in [r"/dp/([A-Z0-9]{10})", r"/gp/product/([A-Z0-9]{10})", r"asin=([A-Z0-9]{10})"]:
+        m = re.search(pat, url, re.IGNORECASE)
+        if m:
+            return m.group(1).upper()
+    return ""
+
+
+def _tag_from_url(url: str) -> str:
+    try:
+        params = parse_qs(urlparse(url).query)
+        return params.get("tag", [""])[0]
+    except Exception:
+        return ""
+
 
 def add_affiliate_tag(url: str, tag: str) -> str:
     """Agrega o reemplaza el tag de afiliado en una URL de Amazon."""
@@ -111,67 +170,28 @@ def add_affiliate_tag(url: str, tag: str) -> str:
         return url
 
 
-def resolve_final_url(url: str, timeout: int = 8) -> str:
-    """Sigue redirects para obtener la URL final (busca amazon.com)."""
-    try:
-        resp = requests.get(
-            url, allow_redirects=True, timeout=timeout,
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
-        )
-        final = resp.url
-        if "amazon.com" in final:
-            return final
-        # Buscar link de Amazon en el HTML
-        amazon_links = re.findall(r'https?://[^"\s\'<>]*amazon\.com/[^"\s\'<>]{10,}', resp.text)
-        if amazon_links:
-            return amazon_links[0]
-        return final
-    except Exception:
-        return url
-
-
 def extract_prices(text: str):
-    """
-    Extrae (precio_original, precio_venta, descuento_pct) de texto.
-    Retorna (None, None, None) si no puede.
-    """
+    """Extrae (precio_orig, precio_venta, descuento_pct) de texto o (None,None,None)."""
     text = text.replace(",", "")
+    prices = [float(p) for p in re.findall(r"\$(\d+(?:\.\d+)?)", text)]
+    pct_m  = re.search(r"(\d+)\s*%\s*off", text, re.IGNORECASE)
 
-    # Patrón: $X.XX → $Y.YY  o  was $X.XX, now $Y.YY
-    two_prices = re.findall(r"\$(\d+(?:\.\d+)?)", text)
-    pct_match  = re.search(r"(\d+)\s*%\s*off", text, re.IGNORECASE)
-
-    if len(two_prices) >= 2:
-        prices = [float(p) for p in two_prices[:4]]
+    if len(prices) >= 2:
         prices_sorted = sorted(set(prices), reverse=True)
         if len(prices_sorted) >= 2:
-            orig = prices_sorted[0]
-            sale = prices_sorted[1]
-            if orig > 0 and sale < orig:
+            orig, sale = prices_sorted[0], prices_sorted[1]
+            if orig > 0 and 0 < sale < orig:
                 disc = int(round((1 - sale / orig) * 100))
                 if 5 <= disc <= 95:
                     return orig, sale, disc
 
-    if len(two_prices) == 1 and pct_match:
-        sale = float(two_prices[0])
-        disc = int(pct_match.group(1))
+    if len(prices) == 1 and pct_m:
+        sale = prices[0]
+        disc = int(pct_m.group(1))
         if 5 <= disc <= 95 and sale > 0:
-            orig = round(sale / (1 - disc / 100), 2)
-            return orig, sale, disc
+            return round(sale / (1 - disc / 100), 2), sale, disc
 
     return None, None, None
-
-
-def is_amazon_entry(entry: dict) -> bool:
-    """Verifica si la entrada de Slickdeals tiene un link a Amazon."""
-    text = " ".join([
-        entry.get("title", ""),
-        entry.get("summary", ""),
-        entry.get("link", ""),
-        " ".join(getattr(entry, "links", [{}])[0].get("href", "") for _ in [0])
-            if hasattr(entry, "links") and entry.get("links") else "",
-    ]).lower()
-    return "amazon.com" in text or "amazon" in entry.get("link", "").lower()
 
 
 # ─── Clase principal ─────────────────────────────────────────────────────────
@@ -182,131 +202,224 @@ class AmazonDealFinder:
     def __init__(self, affiliate_tag: str, min_discount: int = 30):
         self.affiliate_tag = affiliate_tag
         self.min_discount  = min_discount
+        self.session = requests.Session()
+        self.session.headers.update(HEADERS)
 
-    def _fetch_rss(self, search_term: str) -> list:
-        """Fetches Slickdeals RSS for a given search term."""
+    # ── RSS ──────────────────────────────────────────────────────────────────
+
+    def _fetch_rss(self, term: str) -> list:
         params = {
-            "src":        "SearchBarV2",
-            "q":          search_term,
-            "searcharea": "deals",
-            "searchin":   "first",
-            "rss":        "1",
+            "src": "SearchBarV2", "q": term,
+            "searcharea": "deals", "searchin": "first", "rss": "1",
         }
-        url = self.SLICKDEALS_BASE + "?" + urlencode(params)
         try:
-            feed = feedparser.parse(url)
+            feed = feedparser.parse(
+                self.SLICKDEALS_BASE + "?" + urlencode(params)
+            )
             return feed.entries
         except Exception as e:
-            print(f"   ⚠️  RSS error ({search_term}): {e}")
+            print(f"   ⚠️  RSS error ({term}): {e}")
             return []
+
+    # ── URL de Amazon ─────────────────────────────────────────────────────────
+
+    def _amazon_url_from_slickdeals(self, sd_url: str) -> str:
+        """
+        Intenta obtener la URL real de Amazon desde la página de Slickdeals.
+        1. Sigue el redirect HTTP (a veces ya lleva a Amazon)
+        2. Parsea el HTML y busca el link "Go to Deal"
+        3. Regex sobre el HTML completo
+        """
+        try:
+            resp = self.session.get(sd_url, timeout=12, allow_redirects=True)
+            final_url = resp.url
+
+            # Redirect directo a Amazon
+            if "amazon.com" in final_url:
+                return final_url
+
+            # Buscar en el HTML el botón "Go to Deal" o link de Amazon
+            soup = BeautifulSoup(resp.text, "html.parser")
+
+            # Candidatos: links con /dp/ o /gp/product/
+            for a in soup.find_all("a", href=True):
+                href = a["href"]
+                if "amazon.com" in href and (
+                    "/dp/" in href or "/gp/product/" in href
+                ):
+                    return href
+
+            # Regex más amplio sobre todo el HTML
+            matches = re.findall(
+                r'https?://(?:www\.)?amazon\.com/[^\s"\'<>)\]]+', resp.text
+            )
+            for m in matches:
+                if "/dp/" in m or "/gp/product/" in m:
+                    return m.rstrip(".,;)")
+
+        except Exception as e:
+            print(f"      ⚠️  No se pudo resolver Amazon URL: {e}")
+
+        return ""  # no encontrado
+
+    # ── Imagen del producto ───────────────────────────────────────────────────
+
+    def _get_product_image(self, amazon_url: str) -> tuple[str, bytes]:
+        """Retorna (image_url, image_bytes). Intenta CDN primero, luego scrape."""
+        asin = _extract_asin(amazon_url)
+        if not asin:
+            return "", b""
+
+        # CDN directo (sin scraping)
+        cdn_url = f"https://images-na.ssl-images-amazon.com/images/P/{asin}.jpg"
+        try:
+            r = self.session.get(cdn_url, timeout=8)
+            if r.status_code == 200 and len(r.content) > 2000:
+                return cdn_url, r.content
+        except Exception:
+            pass
+
+        # Scraping de la página del producto
+        try:
+            r = self.session.get(amazon_url, timeout=12)
+            soup = BeautifulSoup(r.text, "html.parser")
+
+            img_tag = (
+                soup.find("img", id="landingImage")
+                or soup.find("img", id="imgBlkFront")
+                or soup.find("img", {"data-old-hires": True})
+            )
+            img_url = ""
+            if img_tag:
+                img_url = (
+                    img_tag.get("data-old-hires")
+                    or img_tag.get("data-src")
+                    or img_tag.get("src", "")
+                )
+
+            if img_url and img_url.startswith("http"):
+                r2 = self.session.get(img_url, timeout=8)
+                if r2.status_code == 200:
+                    return img_url, r2.content
+        except Exception:
+            pass
+
+        return "", b""
+
+    # ── Pipeline principal ────────────────────────────────────────────────────
 
     def find_deals(self, count: int = 10) -> list:
         print("🔍 Buscando ofertas en Slickdeals RSS...")
-        deals    = []
-        seen     = set()
+        deals = []
+        seen  = set()
 
         for cat in CATEGORIES:
             cat_deals = []
+
             for term in cat["search_terms"]:
                 print(f"   Buscando: {term}")
                 entries = self._fetch_rss(term)
-                time.sleep(0.3)  # gentil con el servidor
+                time.sleep(0.4)
 
                 for entry in entries:
                     title   = entry.get("title", "").strip()
                     summary = entry.get("summary", "")
-                    link    = entry.get("link", "")
+                    sd_link = entry.get("link", "")
 
                     key = title.lower()
                     if key in seen or not title:
                         continue
 
-                    # Debe mencionar Amazon
-                    full_text = f"{title} {summary} {link}".lower()
+                    full_text = f"{title} {summary} {sd_link}".lower()
                     if "amazon" not in full_text:
                         continue
 
-                    # Debe contener una de nuestras marcas en el título
                     if not any(kw in title.lower() for kw in cat["keywords"]):
                         continue
 
-                    # Extraer precios
                     orig, sale, disc = extract_prices(f"{title} {summary}")
-                    if disc is None:
-                        # Intentar solo con summary
-                        orig, sale, disc = extract_prices(summary)
                     if disc is None or disc < self.min_discount:
                         continue
 
-                    # Resolver URL de Amazon
+                    # ── Obtener URL real de Amazon ──
+                    print(f"      → Resolviendo URL Amazon para: {title[:50]}…")
                     amazon_url = ""
-                    # Buscar URL de Amazon en el texto
-                    amazon_matches = re.findall(
-                        r'https?://(?:www\.)?amazon\.com/[^\s"\'<>]{10,}', full_text
-                    )
-                    if amazon_matches:
-                        amazon_url = amazon_matches[0].rstrip(".,;)")
-                    else:
-                        # Seguir redirect del link de Slickdeals
-                        print(f"      → Resolviendo redirect para: {title[:50]}…")
-                        resolved = resolve_final_url(link)
-                        if "amazon.com" in resolved:
-                            amazon_url = resolved
+
+                    # 1. Intentar en el texto de la entrada primero (rápido)
+                    for pat in [r'https?://(?:www\.)?amazon\.com/dp/[^\s"\'<>)]+',
+                                r'https?://(?:www\.)?amazon\.com/gp/product/[^\s"\'<>)]+'
+                                ]:
+                        ms = re.findall(pat, f"{title} {summary}")
+                        if ms:
+                            amazon_url = ms[0].rstrip(".,;)")
+                            break
+
+                    # 2. Si no, ir a la página de Slickdeals
+                    if not amazon_url:
+                        amazon_url = self._amazon_url_from_slickdeals(sd_link)
+                        time.sleep(0.5)
 
                     if not amazon_url:
-                        # Usar link original con nota
-                        amazon_url = link
+                        print(f"         ⚠️  Sin URL Amazon, omitiendo")
+                        continue
 
                     affiliate_url = add_affiliate_tag(amazon_url, self.affiliate_tag)
 
+                    # ── Imagen del producto ──
+                    img_url, img_bytes = self._get_product_image(amazon_url)
+                    if img_url:
+                        print(f"         🖼️  Imagen obtenida ({len(img_bytes)//1024} KB)")
+                    else:
+                        print(f"         ⚠️  Sin imagen")
+                    time.sleep(0.3)
+
                     deal = Deal(
-                        title         = title,
-                        original_price= orig  if orig  else sale,
-                        sale_price    = sale  if sale  else 0.0,
-                        discount_pct  = disc,
-                        product_url   = amazon_url,
-                        affiliate_url = affiliate_url,
-                        category      = cat["name"],
-                        category_emoji= cat["emoji"],
+                        title          = title,
+                        original_price = orig if orig else sale,
+                        sale_price     = sale if sale else 0.0,
+                        discount_pct   = disc,
+                        product_url    = amazon_url,
+                        affiliate_url  = affiliate_url,
+                        image_url      = img_url,
+                        image_bytes    = img_bytes,
+                        category       = cat["name"],
+                        category_emoji = cat["emoji"],
                     )
                     cat_deals.append(deal)
                     seen.add(key)
 
                 if len(cat_deals) >= 4:
-                    break  # suficientes para esta categoría
+                    break
 
-            # Ordenar por descuento y tomar los mejores de cada categoría
             cat_deals.sort(key=lambda d: d.discount_pct, reverse=True)
             deals.extend(cat_deals[:max(1, count // len(CATEGORIES) + 1)])
 
-        # Si no hay suficientes, buscar cualquier deal de Amazon
+        # Relleno genérico si faltan
         if len(deals) < count:
             print("   Buscando deals generales de Amazon…")
-            for term in ["amazon deal today", "amazon sale 50% off", "amazon clearance"]:
-                entries = self._fetch_rss(term)
-                time.sleep(0.3)
-                for entry in entries:
+            for term in ["amazon deal 50% off", "amazon clearance sale"]:
+                for entry in self._fetch_rss(term):
                     title   = entry.get("title", "").strip()
                     summary = entry.get("summary", "")
-                    link    = entry.get("link", "")
+                    sd_link = entry.get("link", "")
                     key     = title.lower()
                     if key in seen or not title:
                         continue
-                    full_text = f"{title} {summary} {link}".lower()
-                    if "amazon" not in full_text:
+                    if "amazon" not in f"{title} {summary} {sd_link}".lower():
                         continue
                     orig, sale, disc = extract_prices(f"{title} {summary}")
                     if disc is None or disc < self.min_discount:
                         continue
-                    amazon_matches = re.findall(
-                        r'https?://(?:www\.)?amazon\.com/[^\s"\'<>]{10,}', full_text
-                    )
-                    amazon_url = amazon_matches[0].rstrip(".,;)") if amazon_matches else link
+                    amazon_url = self._amazon_url_from_slickdeals(sd_link)
+                    if not amazon_url:
+                        continue
                     affiliate_url = add_affiliate_tag(amazon_url, self.affiliate_tag)
+                    img_url, img_bytes = self._get_product_image(amazon_url)
                     deals.append(Deal(
                         title=title, original_price=orig or sale, sale_price=sale or 0.0,
-                        discount_pct=disc, product_url=amazon_url, affiliate_url=affiliate_url,
-                        category="Oferta General", category_emoji="🛒",
+                        discount_pct=disc, product_url=amazon_url,
+                        affiliate_url=affiliate_url, image_url=img_url,
+                        image_bytes=img_bytes, category="Oferta General", category_emoji="🛒",
                     ))
                     seen.add(key)
                     if len(deals) >= count:
@@ -314,8 +427,7 @@ class AmazonDealFinder:
                 if len(deals) >= count:
                     break
 
-        # Ordenar globalmente por descuento
         deals.sort(key=lambda d: d.discount_pct, reverse=True)
         result = deals[:count]
-        print(f"\n✅ {len(result)} deals encontrados")
+        print(f"\n✅ {len(result)} deals encontrados con URLs de Amazon")
         return result

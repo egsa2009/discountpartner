@@ -33,7 +33,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install feedparser beautifulsoup4 requests --break-system-packages -q
+          pip install feedparser beautifulsoup4 requests pillow --break-system-packages -q
 
       - name: Run pipeline
         env:
@@ -49,10 +49,12 @@ jobs:
             python run_pipeline.py --count $COUNT
           fi
 
-      - name: Upload results
+      - name: Upload results & Instagram images
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: deals-output-${{ github.run_number }}
-          path: deals_output.json
+          path: |
+            deals_output.json
+            instagram_posts/
           if-no-files-found: ignore
