@@ -33,8 +33,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install playwright beautifulsoup4 requests --break-system-packages -q
-          playwright install chromium --with-deps
+          pip install feedparser beautifulsoup4 requests --break-system-packages -q
 
       - name: Run pipeline
         env:

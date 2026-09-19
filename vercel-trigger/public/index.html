@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Discount Partner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --border: #2a2a2a;
+      --accent: #f97316;
+      --accent-dim: rgba(249,115,22,0.15);
+      --text: #f0f0f0;
+      --muted: #888;
+      --green: #22c55e;
+      --red: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 28px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .logo {
+      font-size: 2.2rem;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      text-align: center;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    input[type="password"], input[type="number"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+      margin-bottom: 16px;
+      font-family: inherit;
+    }
+    input:focus {
+      border-color: var(--accent);
+    }
+    .row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .row > div { flex: 1; }
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      cursor: pointer;
+      margin-bottom: 24px;
+      user-select: none;
+    }
+    .toggle-label input { display: none; }
+    .toggle {
+      width: 38px; height: 20px;
+      background: var(--border);
+      border-radius: 10px;
+      position: relative;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 14px; height: 14px;
+      background: var(--muted);
+      border-radius: 50%;
+      top: 3px; left: 3px;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .toggle-label input:checked + .toggle {
+      background: var(--accent-dim);
+    }
+    .toggle-label input:checked + .toggle::after {
+      transform: translateX(18px);
+      background: var(--accent);
+    }
+    .btn {
+      width: 100%;
+      padding: 13px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      font-family: inherit;
+      letter-spacing: 0.01em;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn.loading { opacity: 0.7; cursor: wait; }
+    #status {
+      margin-top: 18px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      text-align: center;
+      display: none;
+    }
+    #status.ok {
+      background: rgba(34,197,94,0.12);
+      color: var(--green);
+      border: 1px solid rgba(34,197,94,0.25);
+      display: block;
+    }
+    #status.err {
+      background: rgba(239,68,68,0.12);
+      color: var(--red);
+      border: 1px solid rgba(239,68,68,0.25);
+      display: block;
+    }
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 24px 0;
+    }
+    .info {
+      font-size: 0.76rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.6;
+    }
+    .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🛍️</div>
+    <h1>Discount Partner</h1>
+    <p class="subtitle">Panel de control · Telegram Deals</p>
+
+    <label for="pwd">Contraseña</label>
+    <input type="password" id="pwd" placeholder="••••••••" autocomplete="current-password" />
+
+    <div class="row">
+      <div>
+        <label for="count">Nº de deals</label>
+        <input type="number" id="count" value="10" min="1" max="30" />
+      </div>
+    </div>
+
+    <label class="toggle-label">
+      <input type="checkbox" id="dryRun" />
+      <span class="toggle"></span>
+      Dry run (no envía Telegram)
+    </label>
+
+    <button class="btn" id="runBtn" onclick="triggerPipeline()">
+      ▶ Ejecutar ahora
+    </button>
+
+    <div id="status"></div>
+
+    <div class="divider"></div>
+    <div class="info">
+      <span class="dot"></span>
+      Automatizado: 8:30 · 12:30 · 7:30 PM (COT)<br/>
+      Marcas: Calvin Klein · Tommy · Nike · Adidas · Apple · Sony
+    </div>
+  </div>
+
+  <script>
+    async function triggerPipeline() {
+      const btn    = document.getElementById("runBtn");
+      const status = document.getElementById("status");
+      const pwd    = document.getElementById("pwd").value.trim();
+      const count  = parseInt(document.getElementById("count").value) || 10;
+      const dryRun = document.getElementById("dryRun").checked;
+
+      if (!pwd) {
+        status.className = "err";
+        status.textContent = "⚠️ Ingresa la contraseña";
+        return;
+      }
+
+      btn.disabled = true;
+      btn.classList.add("loading");
+      btn.textContent = "⏳ Iniciando…";
+      status.className = "";
+      status.style.display = "none";
+
+      try {
+        const resp = await fetch("/api/trigger", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: pwd, count, dry_run: dryRun }),
+        });
+        const data = await resp.json();
+
+        if (resp.ok && data.success) {
+          status.className = "ok";
+          status.textContent = `✅ ${data.message} — revisa tu Telegram en ~2 min`;
+          btn.textContent = "✓ Lanzado";
+        } else {
+          throw new Error(data.error || "Error desconocido");
+        }
+      } catch (err) {
+        status.className = "err";
+        status.textContent = `❌ ${err.message}`;
+        btn.disabled = false;
+        btn.classList.remove("loading");
+        btn.textContent = "▶ Ejecutar ahora";
+      }
+    }
+
+    // Permitir Enter en el campo de contraseña
+    document.getElementById("pwd").addEventListener("keydown", e => {
+      if (e.key === "Enter") triggerPipeline();
+    });
+  </script>
+</body>
+</html>
