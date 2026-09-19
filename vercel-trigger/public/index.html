@@ -442,7 +442,7 @@
       const inputs = document.querySelectorAll('#urlList input[type="url"]');
       return Array.from(inputs)
         .map(i => i.value.trim())
-        .filter(v => v.length > 0 && v.includes('amazon'));
+        .filter(v => v.length > 0 && (v.includes('amazon') || v.includes('amzn.to') || v.includes('a.co/')));
     }
 
     // ── Status ───────────────────────────────────────────────────────────────

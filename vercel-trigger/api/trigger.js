@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
   try {
     if (mode === "manual") {
       // ── Modo manual: URLs que el usuario pegó ──────────────────────────────
-      const urlList = (urls || []).slice(0, 10).filter(u => u && u.includes("amazon"));
+      const urlList = (urls || []).slice(0, 10).filter(u => u && (u.includes("amazon") || u.includes("amzn.to") || u.includes("a.co/")));
       if (urlList.length === 0) {
         return res.status(400).json({ error: "No se encontraron URLs válidas de Amazon" });
       }

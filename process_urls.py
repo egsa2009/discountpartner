@@ -293,7 +293,10 @@ def run_url_pipeline():
         print("❌ Faltan TELEGRAM_TOKEN o TELEGRAM_CHAT_ID")
         sys.exit(1)
 
-    urls = [u.strip() for u in urls_raw.split(",") if "amazon" in u.strip().lower()]
+    def _is_amz(u):
+        u = u.lower()
+        return any(d in u for d in ["amazon", "amzn.to", "a.co/d/"])
+    urls = [u.strip() for u in urls_raw.split(",") if _is_amz(u.strip())]
     print(f"📋 {len(urls)} URL(s) recibida(s):\n")
     for i, u in enumerate(urls, 1):
         print(f"   {i}. {u[:80]}…" if len(u) > 80 else f"   {i}. {u}")
