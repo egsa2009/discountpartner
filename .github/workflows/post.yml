@@ -1,48 +1,59 @@
-name: Discount Partner — Auto Post
+name: Discount Partner — Telegram Deals
+
 on:
   schedule:
-    - cron: '0 14 * * *'   # 9:00 AM Bogotá (UTC-5 → 14:00 UTC)
-    - cron: '0 23 * * *'   # 6:00 PM Bogotá (UTC-5 → 23:00 UTC)
-  workflow_dispatch:         # Ejecución manual desde GitHub Actions
+    - cron: '30 13 * * *'   # 8:30 AM Bogotá (COT = UTC-5)
+    - cron: '30 17 * * *'   # 12:30 PM Bogotá
+    - cron: '30 0 * * *'    # 7:30 PM Bogotá (siguiente día UTC)
+  workflow_dispatch:
+    inputs:
+      count:
+        description: 'Número de deals'
+        required: false
+        default: '10'
+      dry_run:
+        description: 'Dry run (no envía Telegram)'
+        type: boolean
+        required: false
+        default: false
+
 jobs:
-  post:
-    permissions:
-      contents: write
+  deals:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up Python 3.11
+
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt
-      - name: Install Playwright Chromium
+
+      - name: Install dependencies
         run: |
-          playwright install chromium
-          playwright install-deps chromium
+          pip install playwright beautifulsoup4 requests --break-system-packages -q
+          playwright install chromium --with-deps
+
       - name: Run pipeline
         env:
-          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
-          INSTAGRAM_ACCOUNT_ID: ${{ secrets.INSTAGRAM_ACCOUNT_ID }}
-          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
-          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
-          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
           AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
-          INSTAGRAM_APP_ID: ${{ secrets.INSTAGRAM_APP_ID }}
-          INSTAGRAM_APP_SECRET: ${{ secrets.INSTAGRAM_APP_SECRET }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python run_pipeline.py --count 1
-      - name: Upload run log as artifact
+          TELEGRAM_TOKEN:       ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID:     ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          COUNT=${{ github.event.inputs.count || '10' }}
+          DRY=${{ github.event.inputs.dry_run || 'false' }}
+          if [ "$DRY" = "true" ]; then
+            python run_pipeline.py --count $COUNT --dry-run
+          else
+            python run_pipeline.py --count $COUNT
+          fi
+
+      - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: run-log-${{ github.run_id }}
-          path: |
-            run_log_*.json
-            deals_*.json
+          name: deals-output-${{ github.run_number }}
+          path: deals_output.json
           if-no-files-found: ignore
-          retention-days: 7

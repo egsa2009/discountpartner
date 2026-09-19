@@ -22,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from deal_finder import AmazonDealFinder
 from post_creator import create_post
-from instagram_publisher import InstagramPublisher, upload_to_cloudinary, update_github_redirect
+from instagram_publisher import InstagramPublisher, upload_to_cloudinary
 
 
 # ─── Configuración ──────────────────────────────────────────────────────────────
@@ -180,8 +180,7 @@ def run_pipeline(dry_run: bool = False, count: int = None) -> dict:
         img_dir.mkdir(exist_ok=True)
         img_path = str(img_dir / f"post_{run_time.strftime('%Y%m%d_%H%M')}_{i}.png")
         try:
-            pages_url_preview = f"egsa2009.github.io/discountpartner/deal/{i}"
-            create_post(deal_dict, img_path, story_url=pages_url_preview)
+            create_post(deal_dict, img_path)
             result_entry["image_path"] = img_path
         except Exception as e:
             print(f"   ❌ Error creando imagen: {e}")
@@ -194,7 +193,7 @@ def run_pipeline(dry_run: bool = False, count: int = None) -> dict:
             print(f"\n⏭️  DRY RUN: se omitiría la publicación en Instagram.")
             result_entry["published"] = False
         else:
-            print(f"\n📲 PASO 3: Subiendo imagen a Cloudinary...")
+            print(f"\n📲 PASO 3: Publicando en Instagram...")
             try:
                 public_url = upload_to_cloudinary(
                     img_path,
@@ -202,32 +201,26 @@ def run_pipeline(dry_run: bool = False, count: int = None) -> dict:
                     ig_cfg["cloudinary_api_key"],
                     ig_cfg["cloudinary_api_secret"]
                 )
+                caption = deal_dict.get("caption_es", deal.title)
+                pub_result = publisher.publish(public_url, caption)
+                result_entry.update({
+                    "published": True,
+                    "post_url": pub_result.get("post_url"),
+                    "media_id": pub_result.get("media_id")
+                })
+                # Publicar historia con link sticker clickeable
                 affiliate_url = deal_dict.get("affiliate_url") or deal_dict.get("url", "")
-
-                # Actualizar redirect en GitHub Pages y publicar historia
-                print(f"\n📖 PASO 4: Publicando historia en Instagram...")
-                try:
-                    gh_token = os.getenv("GITHUB_TOKEN", "")
-                    if gh_token and affiliate_url:
-                        pages_url = update_github_redirect(affiliate_url, i, gh_token)
-                    else:
-                        pages_url = affiliate_url  # fallback local
-                        print(f"   ⚠️  Sin GITHUB_TOKEN — usando URL directa (no funcionará el link sticker)")
-
-                    story_result = publisher.publish_story_with_link(public_url, pages_url)
-                    result_entry.update({
-                        "published": True,
-                        "story_id": story_result.get("story_id"),
-                        "story_link": pages_url,
-                    })
-                    print(f"   ✅ Historia publicada.")
-                except Exception as e:
-                    print(f"   ❌ Error publicando historia: {e}")
-                    result_entry["error"] = f"Story publish failed: {e}"
-                    result_entry["published"] = False
+                if affiliate_url:
+                    print(f"\n📖 PASO 4: Publicando historia con link directo a Amazon...")
+                    try:
+                        story_result = publisher.publish_story_with_link(public_url, affiliate_url)
+                        result_entry["story_id"] = story_result.get("story_id")
+                        print(f"   ✅ Historia publicada — link clickeable directo a Amazon")
+                    except Exception as e:
+                        print(f"   ⚠️  No se pudo publicar la historia: {e}")
             except Exception as e:
-                print(f"   ❌ Error subiendo imagen: {e}")
-                result_entry["error"] = f"Upload failed: {e}"
+                print(f"   ❌ Error publicando: {e}")
+                result_entry["error"] = f"Publish failed: {e}"
                 result_entry["published"] = False
 
         log["results"].append(result_entry)
