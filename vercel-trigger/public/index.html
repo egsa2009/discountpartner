@@ -11,6 +11,7 @@
       --bg:         #0c0c0e;
       --surface:    #161618;
       --surface2:   #1e1e21;
+      --surface3:   #252528;
       --border:     #2a2a30;
       --accent:     #f97316;
       --accent-dim: rgba(249,115,22,0.12);
@@ -26,469 +27,428 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      padding: 20px 16px 40px;
+      padding: 16px 14px 48px;
     }
     .wrap { max-width: 440px; margin: 0 auto; }
 
-    /* ── Header ── */
-    .header { text-align: center; padding: 28px 0 24px; }
-    .header .emoji { font-size: 2.4rem; display: block; margin-bottom: 8px; }
-    .header h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; }
-    .header p  { font-size: 0.78rem; color: var(--muted); margin-top: 3px; }
+    /* Header */
+    .header { text-align: center; padding: 22px 0 20px; }
+    .header .emoji { font-size: 2rem; display: block; margin-bottom: 6px; }
+    .header h1 { font-size: 1.15rem; font-weight: 700; }
+    .header p  { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
 
-    /* ── Card ── */
+    /* Card */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 24px 20px;
-      margin-bottom: 12px;
+      border-radius: 14px;
+      padding: 18px 16px;
+      margin-bottom: 10px;
     }
     .card-title {
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 14px;
-      display: flex;
-      align-items: center;
-      gap: 7px;
+      font-size: 0.7rem; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.08em;
+      margin-bottom: 12px;
+      display: flex; align-items: center; gap: 7px;
     }
-    .card-title span.badge {
-      background: var(--accent-dim);
-      color: var(--accent);
-      padding: 2px 7px;
-      border-radius: 4px;
-      font-size: 0.68rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
+    .badge {
+      background: var(--accent-dim); color: var(--accent);
+      padding: 2px 6px; border-radius: 4px;
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.04em;
     }
 
-    /* ── Inputs ── */
+    /* Inputs */
     label.lbl {
-      display: block;
-      font-size: 0.74rem;
-      font-weight: 500;
-      color: var(--muted);
-      margin-bottom: 5px;
+      display: block; font-size: 0.72rem; font-weight: 500;
+      color: var(--muted); margin-bottom: 4px;
     }
-    input[type="password"],
-    input[type="text"],
-    input[type="url"],
-    input[type="number"] {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 12px;
-      font-size: 0.9rem;
-      color: var(--text);
-      outline: none;
-      transition: border-color 0.15s;
-      font-family: inherit;
+    input[type="password"], input[type="text"],
+    input[type="url"], input[type="number"] {
+      width: 100%; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 9px 11px; font-size: 0.88rem; color: var(--text);
+      outline: none; transition: border-color 0.15s; font-family: inherit;
     }
     input:focus { border-color: var(--accent); }
-    input::placeholder { color: var(--border); }
-    .field { margin-bottom: 14px; }
+    input::placeholder { color: #3a3a44; }
 
-    /* ── URL list ── */
-    .url-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    /* Deal card */
+    .deal-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
       margin-bottom: 8px;
+      overflow: hidden;
     }
-    .url-row input { flex: 1; margin: 0; }
-    .url-num {
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: var(--muted);
-      width: 16px;
-      text-align: right;
-      flex-shrink: 0;
+    .deal-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 10px 10px 12px;
     }
-    .del-btn {
-      background: none;
-      border: none;
-      color: var(--muted);
-      cursor: pointer;
-      padding: 6px;
-      border-radius: 6px;
-      font-size: 1rem;
-      line-height: 1;
-      transition: color 0.15s, background 0.15s;
-      flex-shrink: 0;
+    .deal-num {
+      font-size: 0.68rem; font-weight: 700;
+      color: var(--muted); width: 14px; flex-shrink: 0;
     }
-    .del-btn:hover { color: var(--red); background: rgba(239,68,68,0.1); }
+    .deal-url-wrap { flex: 1; min-width: 0; }
+    .deal-url-wrap input {
+      background: var(--bg);
+      border-radius: 7px; font-size: 0.82rem;
+      padding: 8px 10px;
+    }
+    .deal-del {
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; padding: 5px; border-radius: 5px;
+      font-size: 0.9rem; line-height: 1; flex-shrink: 0;
+      transition: color 0.15s;
+    }
+    .deal-del:hover { color: var(--red); }
+
+    /* Price row */
+    .deal-prices {
+      display: grid; grid-template-columns: 1fr 1fr 80px;
+      gap: 7px; padding: 0 12px 11px;
+    }
+    .price-field label.lbl { margin-bottom: 3px; }
+    .price-field input {
+      font-size: 0.82rem; padding: 7px 9px;
+    }
+    .price-hint {
+      font-size: 0.67rem; color: var(--muted);
+      line-height: 1.4; padding: 0 12px 10px;
+      display: none;
+    }
+    .deal-card.has-url .price-hint { display: block; }
+
+    /* URL counter */
+    .url-counter {
+      font-size: 0.71rem; color: var(--muted);
+      text-align: right; margin-bottom: 8px;
+    }
+    .url-counter span { color: var(--accent); font-weight: 600; }
 
     .add-btn {
-      width: 100%;
-      padding: 9px;
-      background: var(--surface2);
-      border: 1px dashed var(--border);
-      border-radius: 8px;
-      color: var(--muted);
-      font-size: 0.82rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: border-color 0.15s, color 0.15s;
-      font-family: inherit;
+      width: 100%; padding: 9px;
+      background: var(--surface2); border: 1px dashed var(--border);
+      border-radius: 8px; color: var(--muted);
+      font-size: 0.8rem; font-weight: 500; cursor: pointer;
+      transition: border-color 0.15s, color 0.15s; font-family: inherit;
       margin-top: 4px;
     }
     .add-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .add-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-    /* ── Tabs ── */
-    .tabs {
-      display: flex;
-      gap: 6px;
-      margin-bottom: 14px;
+    /* Hint box */
+    .hint-box {
+      background: rgba(249,115,22,0.07);
+      border: 1px solid rgba(249,115,22,0.2);
+      border-radius: 8px; padding: 9px 11px;
+      font-size: 0.74rem; color: rgba(249,115,22,0.85);
+      line-height: 1.5; margin-bottom: 12px;
     }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
     .tab {
-      flex: 1;
-      padding: 8px 4px;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--muted);
-      font-size: 0.8rem;
-      font-weight: 500;
-      cursor: pointer;
-      text-align: center;
-      transition: all 0.15s;
-      font-family: inherit;
+      flex: 1; padding: 8px 4px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--muted);
+      font-size: 0.78rem; font-weight: 500; cursor: pointer;
+      text-align: center; transition: all 0.15s; font-family: inherit;
     }
     .tab.active {
-      background: var(--accent-dim);
-      border-color: var(--accent);
-      color: var(--accent);
+      background: var(--accent-dim); border-color: var(--accent); color: var(--accent);
     }
 
-    /* ── Toggle ── */
+    /* Toggle */
     .toggle-label {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      font-size: 0.83rem;
-      color: var(--muted);
-      cursor: pointer;
+      display: flex; align-items: center; gap: 9px;
+      font-size: 0.82rem; color: var(--muted); cursor: pointer;
       user-select: none;
-      margin-top: 2px;
     }
     .toggle-label input { display: none; }
     .toggle {
-      width: 36px; height: 20px;
-      background: var(--border);
-      border-radius: 10px;
-      position: relative;
-      transition: background 0.2s;
-      flex-shrink: 0;
+      width: 36px; height: 20px; background: var(--border);
+      border-radius: 10px; position: relative; transition: background 0.2s; flex-shrink: 0;
     }
     .toggle::after {
-      content: '';
-      position: absolute;
-      width: 14px; height: 14px;
-      background: var(--muted);
-      border-radius: 50%;
-      top: 3px; left: 3px;
+      content: ''; position: absolute;
+      width: 14px; height: 14px; background: var(--muted);
+      border-radius: 50%; top: 3px; left: 3px;
       transition: transform 0.2s, background 0.2s;
     }
     .toggle-label input:checked + .toggle { background: var(--accent-dim); }
     .toggle-label input:checked + .toggle::after {
-      transform: translateX(16px);
-      background: var(--accent);
+      transform: translateX(16px); background: var(--accent);
     }
 
-    /* ── Main button ── */
+    /* Main button */
     .btn-main {
-      width: 100%;
-      padding: 14px;
-      background: var(--accent);
-      color: #fff;
-      font-size: 1rem;
-      font-weight: 700;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: opacity 0.2s, transform 0.1s;
-      font-family: inherit;
-      letter-spacing: 0.01em;
+      width: 100%; padding: 14px;
+      background: var(--accent); color: #fff;
+      font-size: 1rem; font-weight: 700; border: none;
+      border-radius: 10px; cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s; font-family: inherit;
     }
     .btn-main:active { transform: scale(0.97); }
     .btn-main:disabled { opacity: 0.45; cursor: not-allowed; }
 
-    /* ── Status ── */
+    /* Status */
     #status {
-      margin-top: 14px;
-      padding: 12px 14px;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      font-weight: 500;
-      text-align: center;
-      display: none;
-      line-height: 1.5;
+      margin-top: 12px; padding: 11px 13px; border-radius: 8px;
+      font-size: 0.83rem; font-weight: 500; text-align: center;
+      display: none; line-height: 1.5;
     }
     #status.ok  { background: rgba(34,197,94,0.1);  color: var(--green); border: 1px solid rgba(34,197,94,0.2);  display: block; }
     #status.err { background: rgba(239,68,68,0.1);  color: var(--red);   border: 1px solid rgba(239,68,68,0.2);  display: block; }
     #status.inf { background: rgba(96,165,250,0.1); color: var(--blue);  border: 1px solid rgba(96,165,250,0.2); display: block; }
 
-    /* ── Footer info ── */
     .footer-info {
-      text-align: center;
-      font-size: 0.73rem;
-      color: var(--muted);
-      line-height: 1.7;
-      padding-top: 8px;
+      text-align: center; font-size: 0.71rem;
+      color: var(--muted); line-height: 1.7; padding-top: 6px;
     }
     .dot {
-      display: inline-block;
-      width: 7px; height: 7px;
-      background: var(--green);
-      border-radius: 50%;
-      margin-right: 5px;
+      display: inline-block; width: 7px; height: 7px;
+      background: var(--green); border-radius: 50%; margin-right: 5px;
       animation: pulse 2s infinite;
     }
-    @keyframes pulse {
-      0%,100% { opacity:1 } 50% { opacity:.3 }
-    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-    /* ── URL counter ── */
-    .url-counter {
-      font-size: 0.72rem;
-      color: var(--muted);
-      text-align: right;
-      margin-top: -2px;
-      margin-bottom: 10px;
-    }
-    .url-counter span { color: var(--accent); font-weight: 600; }
-
-    .hint { font-size: 0.73rem; color: var(--muted); line-height: 1.5; margin-bottom: 12px; }
-
-    /* ── Sections (auto mode) ── */
+    .field { margin-bottom: 12px; }
     .section-auto { display: none; }
-    .section-manual { display: block; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="header">
-      <span class="emoji">🛍️</span>
-      <h1>Discount Partner</h1>
-      <p>Panel de control · Telegram Deals</p>
+<div class="wrap">
+  <div class="header">
+    <span class="emoji">🛍️</span>
+    <h1>Discount Partner</h1>
+    <p>Panel de control · Telegram Deals</p>
+  </div>
+
+  <!-- Password -->
+  <div class="card">
+    <div class="card-title">🔐 Acceso</div>
+    <label class="lbl" for="pwd">Contraseña</label>
+    <input type="password" id="pwd" placeholder="••••••••" autocomplete="current-password" />
+  </div>
+
+  <!-- Mode + deals -->
+  <div class="card">
+    <div class="card-title">Modo <span class="badge">MANUAL</span></div>
+    <div class="tabs">
+      <button class="tab active" id="tab-manual" onclick="setMode('manual')">🔗 Manual (URLs)</button>
+      <button class="tab"        id="tab-auto"   onclick="setMode('auto')">🤖 Automático</button>
     </div>
 
-    <!-- Password -->
-    <div class="card">
-      <div class="card-title">🔐 Acceso</div>
+    <!-- MANUAL -->
+    <div id="section-manual">
+      <div class="hint-box">
+        💡 Pega la URL de Amazon · Agrega precio rebajado y original para que salga el % de descuento en Telegram
+      </div>
+
+      <div class="url-counter">URLs: <span id="urlCount">0</span> / 10</div>
+
+      <div id="dealList"></div>
+      <button class="add-btn" id="addBtn" onclick="addDeal()">+ Agregar oferta</button>
+    </div>
+
+    <!-- AUTO -->
+    <div class="section-auto" id="section-auto">
+      <p style="font-size:.75rem;color:var(--muted);margin-bottom:12px">
+        Busca automáticamente en Slickdeals y Reddit.
+      </p>
       <div class="field">
-        <label class="lbl" for="pwd">Contraseña</label>
-        <input type="password" id="pwd" placeholder="••••••••" autocomplete="current-password" />
+        <label class="lbl" for="count">Número de deals</label>
+        <input type="number" id="count" value="10" min="1" max="30" />
       </div>
-    </div>
-
-    <!-- Mode tabs -->
-    <div class="card">
-      <div class="card-title">
-        Modo
-        <span class="badge">NUEVO</span>
-      </div>
-      <div class="tabs">
-        <button class="tab active" id="tab-manual" onclick="setMode('manual')">
-          🔗 Manual (URLs)
-        </button>
-        <button class="tab" id="tab-auto" onclick="setMode('auto')">
-          🤖 Automático
-        </button>
-      </div>
-
-      <!-- MANUAL MODE -->
-      <div class="section-manual" id="section-manual">
-        <p class="hint">
-          Busca las ofertas tú mismo en Amazon → copia la URL → pégala aquí.<br>
-          El sistema extrae título, precio e imagen, agrega el link de afiliado y envía a Telegram.
-        </p>
-        <div class="url-counter">URLs: <span id="urlCount">1</span> / 10</div>
-        <div id="urlList">
-          <!-- URLs se agregan dinámicamente -->
-        </div>
-        <button class="add-btn" id="addUrlBtn" onclick="addUrl()">+ Agregar otra URL</button>
-      </div>
-
-      <!-- AUTO MODE -->
-      <div class="section-auto" id="section-auto">
-        <p class="hint">
-          Busca automáticamente en Slickdeals y Reddit deals de ropa, zapatos y tecnología.
-        </p>
-        <div class="field">
-          <label class="lbl" for="count">Número de deals a buscar</label>
-          <input type="number" id="count" value="10" min="1" max="30" />
-        </div>
-        <label class="toggle-label" style="margin-bottom:0">
-          <input type="checkbox" id="dryRun" />
-          <span class="toggle"></span>
-          Dry run (genera imágenes sin enviar a Telegram)
-        </label>
-      </div>
-    </div>
-
-    <!-- Send button -->
-    <button class="btn-main" id="runBtn" onclick="run()">
-      🚀 Procesar y enviar a Telegram
-    </button>
-
-    <div id="status"></div>
-
-    <div class="footer-info" style="margin-top:20px">
-      <span class="dot"></span>
-      Auto: 8:30 · 12:30 · 7:30 PM (COT)<br/>
-      Ropa · Zapatos · Tecnología · ≥30% OFF
+      <label class="toggle-label">
+        <input type="checkbox" id="dryRun" />
+        <span class="toggle"></span>
+        Dry run (sin enviar a Telegram)
+      </label>
     </div>
   </div>
 
-  <script>
-    // ── Estado ───────────────────────────────────────────────────────────────
-    let mode = 'manual';
-    let urlCount = 0;
+  <button class="btn-main" id="runBtn" onclick="run()">🚀 Procesar y enviar a Telegram</button>
+  <div id="status"></div>
 
-    // ── Inicialización ───────────────────────────────────────────────────────
-    window.onload = () => {
-      addUrl(); // Empezar con 1 campo vacío
-      // Restaurar contraseña de sessionStorage
-      const saved = sessionStorage.getItem('dp_pwd');
-      if (saved) document.getElementById('pwd').value = saved;
-    };
+  <div class="footer-info" style="margin-top:16px">
+    <span class="dot"></span>Auto: 8:30 · 12:30 · 7:30 PM (COT)<br/>
+    Ropa · Zapatos · Tecnología · ≥30% OFF
+  </div>
+</div>
 
-    // ── Modo ─────────────────────────────────────────────────────────────────
-    function setMode(m) {
-      mode = m;
-      document.getElementById('section-manual').style.display = m === 'manual' ? 'block' : 'none';
-      document.getElementById('section-auto').style.display   = m === 'auto'   ? 'block' : 'none';
-      document.getElementById('tab-manual').classList.toggle('active', m === 'manual');
-      document.getElementById('tab-auto').classList.toggle('active',   m === 'auto');
-      const btn = document.getElementById('runBtn');
-      btn.textContent = m === 'manual'
-        ? '🚀 Procesar y enviar a Telegram'
-        : '▶ Ejecutar búsqueda automática';
-      clearStatus();
+<script>
+  let mode = 'manual';
+  let dealCount = 0;
+
+  window.onload = () => {
+    const pwd = sessionStorage.getItem('dp_pwd');
+    if (pwd) document.getElementById('pwd').value = pwd;
+    addDeal(); // 1 campo inicial
+  };
+
+  function setMode(m) {
+    mode = m;
+    document.getElementById('section-manual').style.display = m === 'manual' ? 'block' : 'none';
+    document.getElementById('section-auto').style.display   = m === 'auto'   ? 'block' : 'none';
+    document.getElementById('tab-manual').classList.toggle('active', m === 'manual');
+    document.getElementById('tab-auto').classList.toggle('active',   m === 'auto');
+    document.getElementById('runBtn').textContent =
+      m === 'manual' ? '🚀 Procesar y enviar a Telegram' : '▶ Ejecutar búsqueda automática';
+    clearStatus();
+  }
+
+  function addDeal() {
+    if (dealCount >= 10) return;
+    dealCount++;
+    updateCounter();
+
+    const id = dealCount;
+    const card = document.createElement('div');
+    card.className = 'deal-card';
+    card.id = `deal-${id}`;
+
+    card.innerHTML = `
+      <div class="deal-header">
+        <span class="deal-num">${id}</span>
+        <div class="deal-url-wrap">
+          <input type="url" id="url-${id}"
+            placeholder="https://amzn.to/… o amazon.com/dp/…"
+            oninput="onUrlInput(${id}, this)" />
+        </div>
+        <button class="deal-del" onclick="removeDeal(${id})" title="Eliminar">✕</button>
+      </div>
+      <div class="deal-prices" id="prices-${id}" style="display:none">
+        <div class="price-field">
+          <label class="lbl">Precio rebajado</label>
+          <input type="number" id="sale-${id}" placeholder="29.99" step="0.01" min="0" />
+        </div>
+        <div class="price-field">
+          <label class="lbl">Precio original</label>
+          <input type="number" id="orig-${id}" placeholder="59.99" step="0.01" min="0" />
+        </div>
+        <div class="price-field">
+          <label class="lbl">Desc. %</label>
+          <input type="number" id="disc-${id}" placeholder="50" min="0" max="99"
+            oninput="autoCalcOrig(${id})" />
+        </div>
+      </div>`;
+
+    document.getElementById('dealList').appendChild(card);
+    document.getElementById('addBtn').disabled = dealCount >= 10;
+    document.getElementById(`url-${id}`).focus();
+
+    // Auto-calcular el % cuando cambia precio rebajado u original
+    card.querySelector(`#sale-${id}`).addEventListener('input', () => calcDisc(id));
+    card.querySelector(`#orig-${id}`).addEventListener('input', () => calcDisc(id));
+  }
+
+  function onUrlInput(id, inp) {
+    const val = inp.value.trim();
+    const prices = document.getElementById(`prices-${id}`);
+    const card   = document.getElementById(`deal-${id}`);
+    if (val.length > 5) {
+      prices.style.display = 'grid';
+      card.classList.add('has-url');
+    } else {
+      prices.style.display = 'none';
+      card.classList.remove('has-url');
     }
-
-    // ── URLs ─────────────────────────────────────────────────────────────────
-    function addUrl() {
-      if (urlCount >= 10) return;
-      urlCount++;
-      updateCounter();
-
-      const row = document.createElement('div');
-      row.className = 'url-row';
-      row.id = `row-${urlCount}`;
-
-      const num = document.createElement('span');
-      num.className = 'url-num';
-      num.textContent = urlCount;
-
-      const inp = document.createElement('input');
-      inp.type = 'url';
-      inp.placeholder = 'https://www.amazon.com/dp/...';
-      inp.id = `url-${urlCount}`;
-      inp.addEventListener('paste', () => {
-        // Auto-focus next field or add new one on paste
-        setTimeout(() => {
-          if (urlCount < 10 && inp.value.trim()) {
-            const nextId = `url-${parseInt(inp.id.split('-')[1]) + 1}`;
-            const nextInp = document.getElementById(nextId);
-            if (!nextInp) addUrl();
-          }
-        }, 100);
-      });
-
-      const del = document.createElement('button');
-      del.className = 'del-btn';
-      del.textContent = '✕';
-      del.title = 'Eliminar';
-      del.onclick = () => removeUrl(row, inp.id);
-
-      row.appendChild(num);
-      row.appendChild(inp);
-      row.appendChild(del);
-      document.getElementById('urlList').appendChild(row);
-
-      document.getElementById('addUrlBtn').disabled = urlCount >= 10;
-      inp.focus();
-    }
-
-    function removeUrl(row, inputId) {
-      if (urlCount <= 1) {
-        document.getElementById(inputId).value = '';
-        return;
-      }
-      row.remove();
-      urlCount--;
-      // Renumerar
-      const rows = document.querySelectorAll('#urlList .url-row');
-      rows.forEach((r, i) => {
-        r.querySelector('.url-num').textContent = i + 1;
-      });
-      urlCount = rows.length;
-      updateCounter();
-      document.getElementById('addUrlBtn').disabled = false;
-    }
-
-    function updateCounter() {
-      document.getElementById('urlCount').textContent = urlCount;
-    }
-
-    function getUrls() {
-      const inputs = document.querySelectorAll('#urlList input[type="url"]');
-      return Array.from(inputs)
-        .map(i => i.value.trim())
-        .filter(v => v.length > 0 && (v.includes('amazon') || v.includes('amzn.to') || v.includes('a.co/')));
-    }
-
-    // ── Status ───────────────────────────────────────────────────────────────
-    function showStatus(msg, type) {
-      const el = document.getElementById('status');
-      el.className = type;
-      el.innerHTML = msg;
-    }
-    function clearStatus() {
-      const el = document.getElementById('status');
-      el.className = '';
-      el.style.display = 'none';
-    }
-
-    // ── Run ──────────────────────────────────────────────────────────────────
-    async function run() {
-      const btn  = document.getElementById('runBtn');
-      const pwd  = document.getElementById('pwd').value.trim();
-
-      if (!pwd) { showStatus('⚠️ Ingresa la contraseña', 'err'); return; }
-      sessionStorage.setItem('dp_pwd', pwd);
-
-      if (mode === 'manual') {
-        const urls = getUrls();
-        if (urls.length === 0) {
-          showStatus('⚠️ Pega al menos una URL de Amazon', 'err');
-          return;
-        }
-        await runManual(btn, pwd, urls);
-      } else {
-        const count  = parseInt(document.getElementById('count').value) || 10;
-        const dryRun = document.getElementById('dryRun').checked;
-        await runAuto(btn, pwd, count, dryRun);
+    // Si pegaron URL y hay siguiente campo vacío, agregar uno nuevo
+    if (val.length > 5 && isAmazonUrl(val)) {
+      const next = document.getElementById(`url-${id + 1}`);
+      if (!next && dealCount < 10) {
+        setTimeout(addDeal, 80);
       }
     }
+  }
 
-    async function runManual(btn, pwd, urls) {
+  function calcDisc(id) {
+    const sale = parseFloat(document.getElementById(`sale-${id}`).value) || 0;
+    const orig = parseFloat(document.getElementById(`orig-${id}`).value) || 0;
+    const discEl = document.getElementById(`disc-${id}`);
+    if (sale > 0 && orig > sale) {
+      discEl.value = Math.round((1 - sale / orig) * 100);
+    }
+  }
+
+  function autoCalcOrig(id) {
+    const sale = parseFloat(document.getElementById(`sale-${id}`).value) || 0;
+    const disc = parseFloat(document.getElementById(`disc-${id}`).value) || 0;
+    const origEl = document.getElementById(`orig-${id}`);
+    if (sale > 0 && disc > 0 && disc < 100 && !origEl.value) {
+      origEl.value = (sale / (1 - disc / 100)).toFixed(2);
+    }
+  }
+
+  function removeDeal(id) {
+    const el = document.getElementById(`deal-${id}`);
+    if (el) el.remove();
+    // Recontamos visualmente
+    const remaining = document.querySelectorAll('#dealList .deal-card');
+    remaining.forEach((c, i) => {
+      c.querySelector('.deal-num').textContent = i + 1;
+    });
+    dealCount = remaining.length;
+    updateCounter();
+    document.getElementById('addBtn').disabled = false;
+    if (dealCount === 0) addDeal();
+  }
+
+  function updateCounter() {
+    document.getElementById('urlCount').textContent = dealCount;
+  }
+
+  function isAmazonUrl(u) {
+    return u.includes('amazon') || u.includes('amzn.to') || u.includes('a.co/');
+  }
+
+  function getDeals() {
+    const cards = document.querySelectorAll('#dealList .deal-card');
+    const deals = [];
+    cards.forEach(card => {
+      const idMatch = card.id.match(/deal-(\d+)/);
+      if (!idMatch) return;
+      const id   = idMatch[1];
+      const url  = (document.getElementById(`url-${id}`)?.value || '').trim();
+      if (!url || !isAmazonUrl(url)) return;
+      const sale = parseFloat(document.getElementById(`sale-${id}`)?.value) || 0;
+      const orig = parseFloat(document.getElementById(`orig-${id}`)?.value) || 0;
+      const disc = parseInt(document.getElementById(`disc-${id}`)?.value) || 0;
+      deals.push({ url, sale_price: sale, orig_price: orig, discount_pct: disc });
+    });
+    return deals;
+  }
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('status');
+    el.className = type; el.innerHTML = msg;
+  }
+  function clearStatus() {
+    const el = document.getElementById('status');
+    el.className = ''; el.style.display = 'none';
+  }
+
+  async function run() {
+    const btn = document.getElementById('runBtn');
+    const pwd = document.getElementById('pwd').value.trim();
+    if (!pwd) { showStatus('⚠️ Ingresa la contraseña', 'err'); return; }
+    sessionStorage.setItem('dp_pwd', pwd);
+
+    if (mode === 'manual') {
+      const deals = getDeals();
+      if (deals.length === 0) {
+        showStatus('⚠️ Pega al menos una URL de Amazon', 'err'); return;
+      }
       btn.disabled = true;
       btn.textContent = '⏳ Procesando…';
-      showStatus(`🔍 Procesando ${urls.length} URL${urls.length > 1 ? 's' : ''}…`, 'inf');
+      showStatus(`🔍 Enviando ${deals.length} oferta${deals.length > 1 ? 's' : ''}…`, 'inf');
 
       try {
         const resp = await fetch('/api/trigger', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: pwd, mode: 'manual', urls }),
+          body: JSON.stringify({ password: pwd, mode: 'manual', deals }),
         });
         const data = await resp.json();
         if (resp.ok && data.success) {
@@ -503,13 +463,12 @@
         btn.disabled = false;
         btn.textContent = '🚀 Procesar y enviar a Telegram';
       }
-    }
-
-    async function runAuto(btn, pwd, count, dryRun) {
+    } else {
+      const count  = parseInt(document.getElementById('count').value) || 10;
+      const dryRun = document.getElementById('dryRun').checked;
       btn.disabled = true;
       btn.textContent = '⏳ Iniciando…';
       showStatus('🤖 Buscando deals automáticamente…', 'inf');
-
       try {
         const resp = await fetch('/api/trigger', {
           method: 'POST',
@@ -519,8 +478,7 @@
         const data = await resp.json();
         if (resp.ok && data.success) {
           showStatus(`✅ ${data.message}<br><small>Revisa Telegram en ~2 min 📲</small>`, 'ok');
-          btn.textContent = '✓ Lanzado';
-          btn.disabled = false;
+          btn.textContent = '✓ Lanzado'; btn.disabled = false;
         } else {
           throw new Error(data.error || 'Error desconocido');
         }
@@ -530,11 +488,11 @@
         btn.textContent = '▶ Ejecutar búsqueda automática';
       }
     }
+  }
 
-    // Enter en contraseña
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && e.target.id === 'pwd') run();
-    });
-  </script>
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.id === 'pwd') run();
+  });
+</script>
 </body>
 </html>

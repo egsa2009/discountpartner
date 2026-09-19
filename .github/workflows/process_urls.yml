@@ -3,8 +3,8 @@ name: Discount Partner — Procesar URLs Manuales
 on:
   workflow_dispatch:
     inputs:
-      urls:
-        description: 'URLs de Amazon separadas por coma (máx. 10)'
+      deals:
+        description: 'JSON array de deals [{url, sale_price, orig_price, discount_pct}]'
         required: true
 
 jobs:
@@ -25,9 +25,9 @@ jobs:
         run: |
           pip install feedparser beautifulsoup4 requests pillow --break-system-packages -q
 
-      - name: Procesar URLs y enviar a Telegram
+      - name: Procesar deals y enviar a Telegram
         env:
-          PRODUCT_URLS:        ${{ github.event.inputs.urls }}
+          PRODUCT_DEALS:        ${{ github.event.inputs.deals }}
           AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
           TELEGRAM_TOKEN:       ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID:     ${{ secrets.TELEGRAM_CHAT_ID }}

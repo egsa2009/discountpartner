@@ -1,4 +1,4 @@
-// api/trigger.js v2 — Modo manual (URLs) + modo automático
+// api/trigger.js v3 — Manual (deals con precios) + automático
 // Env vars en Vercel: GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO, PAGE_PASSWORD
 
 module.exports = async function handler(req, res) {
@@ -6,7 +6,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { password, mode, urls, count, dry_run } = req.body || {};
+  const { password, mode, deals, count, dry_run } = req.body || {};
 
   if (!process.env.PAGE_PASSWORD || password !== process.env.PAGE_PASSWORD) {
     return res.status(401).json({ error: "Contraseña incorrecta" });
@@ -22,9 +22,12 @@ module.exports = async function handler(req, res) {
 
   try {
     if (mode === "manual") {
-      // ── Modo manual: URLs que el usuario pegó ──────────────────────────────
-      const urlList = (urls || []).slice(0, 10).filter(u => u && (u.includes("amazon") || u.includes("amzn.to") || u.includes("a.co/")));
-      if (urlList.length === 0) {
+      // ── Modo manual: deals con URL + precios opcionales ────────────────
+      const validDeals = (deals || []).slice(0, 10).filter(d => {
+        const u = (d.url || "").toLowerCase();
+        return u.includes("amazon") || u.includes("amzn.to") || u.includes("a.co/");
+      });
+      if (validDeals.length === 0) {
         return res.status(400).json({ error: "No se encontraron URLs válidas de Amazon" });
       }
 
@@ -40,7 +43,7 @@ module.exports = async function handler(req, res) {
         body: JSON.stringify({
           ref: "main",
           inputs: {
-            urls: urlList.join(","),
+            deals: JSON.stringify(validDeals),
           },
         }),
       });
@@ -48,7 +51,7 @@ module.exports = async function handler(req, res) {
       if (response.status === 204) {
         return res.status(200).json({
           success: true,
-          message: `${urlList.length} producto${urlList.length > 1 ? "s" : ""} en proceso → Telegram`,
+          message: `${validDeals.length} producto${validDeals.length > 1 ? "s" : ""} en proceso → Telegram`,
         });
       }
 
@@ -58,7 +61,7 @@ module.exports = async function handler(req, res) {
       });
 
     } else {
-      // ── Modo automático: busca deals en Slickdeals/Reddit ─────────────────
+      // ── Modo automático: busca deals en Slickdeals/Reddit ─────────────
       const apiUrl = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/post.yml/dispatches`;
       const response = await fetch(apiUrl, {
         method: "POST",
