@@ -29,6 +29,8 @@ CATEGORIES = [
             "calvin klein amazon", "tommy hilfiger amazon",
             "lacoste amazon", "ralph lauren amazon", "armani amazon",
         ],
+        "reddit_subreddits": ["frugalmalefashion", "frugalfemininity", "deals"],
+        "reddit_queries": ["calvin klein", "tommy hilfiger", "lacoste", "ralph lauren"],
     },
     {
         "name": "Zapatos Deportivos",
@@ -41,6 +43,8 @@ CATEGORIES = [
             "nike shoes amazon", "adidas shoes amazon",
             "new balance amazon", "under armour amazon", "hoka amazon",
         ],
+        "reddit_subreddits": ["frugalmalefashion", "RunningShoeDeals", "deals"],
+        "reddit_queries": ["nike amazon", "adidas amazon", "new balance", "hoka"],
     },
     {
         "name": "Tecnología",
@@ -54,6 +58,8 @@ CATEGORIES = [
             "apple amazon deal", "samsung amazon deal",
             "sony amazon deal", "nintendo amazon deal", "lenovo amazon deal",
         ],
+        "reddit_subreddits": ["buildapcsales", "GameDeals", "deals"],
+        "reddit_queries": ["apple amazon", "samsung amazon", "sony amazon", "nintendo amazon"],
     },
 ]
 
@@ -89,10 +95,17 @@ class Deal:
     def telegram_caption(self, index: int) -> str:
         title_short = self.title[:120] + ("…" if len(self.title) > 120 else "")
         asin = _extract_asin(self.product_url)
-        tag  = _tag_from_url(self.affiliate_url)
+        tag  = _tag_from_url(self.affiliate_url) or "discountpartn-20"
         short_url = (
             f"https://www.amazon.com/dp/{asin}?tag={tag}"
             if asin and tag else self.affiliate_url
+        )
+        # URL de búsqueda Colombia: filtra por envío internacional
+        brand_query = self.title.split("|")[0].strip()[:40].replace(" ", "+")
+        colombia_url = (
+            f"https://www.amazon.com/s?k={brand_query}"
+            f"&i=fashion&deals-widget=%7B%22version%22%3A1%7D"
+            f"&ship-to-country=CO&tag={tag}"
         )
         lines = [
             f"{self.category_emoji} <b>OFERTA #{index} — {self.category}</b>",
@@ -101,9 +114,8 @@ class Deal:
             f"💰 <s>${self.original_price:.2f}</s> → <b>${self.sale_price:.2f}</b>",
             f"🔥 <b>{self.discount_pct}% OFF</b> — Ahorras ${self.savings():.2f}",
             "",
-            f"🔗 {short_url}",
-            "",
-            f"✈️ <i>Verifica envío a Colombia en Amazon Global</i>",
+            f"🛒 <b>Comprar:</b> {short_url}",
+            f"🌎 <b>Buscar en Amazon Colombia:</b> {colombia_url}",
         ]
         return "\n".join(lines)
 
@@ -198,6 +210,20 @@ class AmazonDealFinder:
             ).entries
         except Exception as e:
             print(f"   ⚠️  RSS error ({term}): {e}")
+            return []
+
+    def _fetch_reddit(self, subreddit: str, query: str = "") -> list:
+        """Posts de Reddit — comunidad verifica precios en tiempo real."""
+        if query:
+            url = (f"https://www.reddit.com/r/{subreddit}/search.rss"
+                   f"?q={query.replace(' ', '+')}&sort=new&restrict_sr=1&limit=25")
+        else:
+            url = f"https://www.reddit.com/r/{subreddit}/new.rss?limit=25"
+        try:
+            feed = feedparser.parse(url)
+            return feed.entries
+        except Exception as e:
+            print(f"   ⚠️  Reddit r/{subreddit}: {e}")
             return []
 
     # ── Imagen desde el RSS entry ────────────────────────────────────────────
@@ -347,8 +373,8 @@ class AmazonDealFinder:
                             from datetime import datetime, timezone
                             pub_dt = parsedate_to_datetime(pub_str)
                             age_h = (datetime.now(timezone.utc) - pub_dt).total_seconds() / 3600
-                            if age_h > 24:
-                                print(f"      ⏰ Deal expirado ({age_h:.0f}h): {title[:40]}")
+                            if age_h > 4:
+                                print(f"      ⏰ Deal muy viejo ({age_h:.0f}h > 4h): {title[:40]}")
                                 continue
                         except Exception:
                             pass  # Sin fecha → incluir igual
@@ -392,6 +418,58 @@ class AmazonDealFinder:
 
                 if len(cat_deals) >= 4:
                     break
+
+            # ── Reddit RSS como fuente adicional (precios verificados en tiempo real) ──
+            if len(cat_deals) < 3:
+                reddit_subs = cat.get("reddit_subreddits", [])
+                reddit_qs   = cat.get("reddit_queries", [])
+                for sub, rq in zip(reddit_subs, reddit_qs):
+                    print(f"   Reddit r/{sub}: {rq}")
+                    r_entries = self._fetch_reddit(sub, rq)
+                    time.sleep(0.3)
+                    for entry in r_entries:
+                        title   = entry.get("title", "").strip()
+                        summary = entry.get("summary", "") or ""
+                        sd_link = entry.get("link", "")
+                        key     = title.lower()
+                        if key in seen or not title:
+                            continue
+                        if "amazon" not in f"{title} {summary} {sd_link}".lower():
+                            continue
+                        if not any(kw in title.lower() for kw in cat["keywords"]):
+                            continue
+                        # Filtro de edad en Reddit también
+                        pub_str = entry.get("published", "")
+                        if pub_str:
+                            try:
+                                from email.utils import parsedate_to_datetime
+                                from datetime import datetime, timezone
+                                pub_dt = parsedate_to_datetime(pub_str)
+                                age_h = (datetime.now(timezone.utc) - pub_dt).total_seconds() / 3600
+                                if age_h > 4:
+                                    continue
+                            except Exception:
+                                pass
+                        orig, sale, disc = extract_prices(f"{title} {summary}")
+                        if disc is None or disc < self.min_discount:
+                            continue
+                        amazon_url = self._amazon_url_from_entry(entry) or self._amazon_url_from_page(sd_link)
+                        if not amazon_url:
+                            continue
+                        img_url, img_bytes = self._image_from_entry(entry)
+                        cat_deals.append(Deal(
+                            title=title, original_price=orig or sale, sale_price=sale or 0.0,
+                            discount_pct=disc, product_url=amazon_url,
+                            affiliate_url=add_affiliate_tag(amazon_url, self.affiliate_tag),
+                            image_url=img_url, image_bytes=img_bytes,
+                            category=cat["name"], category_emoji=cat["emoji"],
+                            source="Reddit",
+                        ))
+                        seen.add(key)
+                        if len(cat_deals) >= 4:
+                            break
+                    if len(cat_deals) >= 4:
+                        break
 
             cat_deals.sort(key=lambda d: d.discount_pct, reverse=True)
             deals.extend(cat_deals[:max(1, count // len(CATEGORIES) + 1)])
