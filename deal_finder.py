@@ -161,7 +161,7 @@ def extract_prices(text: str):
 
     if len(prices) >= 2:
         s = sorted(set(prices), reverse=True)
-        if s[0] > 0 and 0 < s[1] < s[0]:
+        if len(s) >= 2 and s[0] > 0 and 0 < s[1] < s[0]:
             disc = int(round((1 - s[1] / s[0]) * 100))
             if 5 <= disc <= 95:
                 return s[0], s[1], disc
