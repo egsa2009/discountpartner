@@ -1,10 +1,11 @@
 """
-deal_finder.py v4 — selectores correctos para Amazon 2026
+deal_finder.py v5 — Búsqueda por categorías: ropa de marca, zapatos deportivos, tecnología
+Filtra automáticamente ofertas con ≥30% de descuento.
 """
-import argparse, json, re, sys, time, random
+import json, re, sys, time, random
 from datetime import datetime
 from dataclasses import dataclass, asdict
-from typing import Optional
+from typing import Optional, List, Tuple
 
 @dataclass
 class Deal:
@@ -19,6 +20,7 @@ class Deal:
     affiliate_url: str
     asin: str
     category: str = "General"
+    category_emoji: str = "🛍️"
     timestamp: str = ""
 
     def __post_init__(self):
@@ -29,7 +31,7 @@ class Deal:
 
     def caption_es(self):
         return "\n".join([
-            "🎁 ¡OFERTA DEL DÍA! 🎁", "",
+            f"{self.category_emoji} ¡OFERTA! {self.category}", "",
             f"🛍️ {self.title[:80]}{'...' if len(self.title)>80 else ''}", "",
             f"💰 Precio normal: ${self.original_price:.2f}",
             f"🔥 HOY SOLO: ${self.sale_price:.2f}",
@@ -39,14 +41,49 @@ class Deal:
             "#deals #offersoftheday #amazon #amazondeal #amazonfind "
             "#discountpartner #shopping #sale #bargain #deal "
             "#savemoney #offer #onlineshopping #amazonfinds #descuentos "
-            "#ofertas #compras #ahorra #mejoresprecios #limitedtimeoffer"
+            "#ofertas #compras #ahorra #mejoresprecios"
         ])
+
+    def telegram_msg(self, index: int) -> str:
+        return (
+            f"{self.category_emoji} <b>OFERTA #{index} — {self.category}</b>\n"
+            f"📦 {self.title[:100]}{'...' if len(self.title)>100 else ''}\n\n"
+            f"💰 <s>${self.original_price:.2f}</s> → <b>${self.sale_price:.2f}</b>\n"
+            f"🔥 <b>{self.discount_pct}% OFF</b> — Ahorras ${self.savings():.2f}\n"
+            f"⭐ {self.rating}/5 ({self.rating_count:,} reseñas)\n\n"
+            f"🔗 {self.affiliate_url}"
+        )
 
     def to_dict(self):
         d = asdict(self)
         d["savings"] = self.savings()
         d["caption_es"] = self.caption_es()
         return d
+
+
+# ─── Categorías de búsqueda ──────────────────────────────────────────────────
+CATEGORY_SEARCHES: List[Tuple[str, str, str, str]] = [
+    # Ropa de marca
+    ("calvin klein",        "fashion",      "Ropa Calvin Klein",    "👗"),
+    ("tommy hilfiger",      "fashion",      "Ropa Tommy Hilfiger",  "👔"),
+    ("lacoste",             "fashion",      "Ropa Lacoste",         "🐊"),
+    ("armani exchange",     "fashion",      "Ropa Armani",          "✨"),
+    ("ralph lauren",        "fashion",      "Ropa Ralph Lauren",    "🏇"),
+    # Zapatos deportivos
+    ("nike shoes",          "shoes",        "Nike",                 "👟"),
+    ("adidas shoes",        "shoes",        "Adidas",               "👟"),
+    ("new balance shoes",   "shoes",        "New Balance",          "👟"),
+    ("on cloud shoes",      "shoes",        "On Cloud",             "☁️"),
+    ("under armour shoes",  "shoes",        "Under Armour",         "💪"),
+    # Tecnología
+    ("apple ipad macbook",  "electronics",  "Apple",                "🍎"),
+    ("samsung galaxy",      "electronics",  "Samsung",              "📱"),
+    ("lenovo laptop",       "computers",    "Lenovo",               "💻"),
+    ("sony headphones",     "electronics",  "Sony Audio",           "🎧"),
+    ("nintendo",            "electronics",  "Nintendo",             "🎮"),
+]
+
+DISCOUNT_FILTER = "p_n_pct-off-with-tax:2671309011|2671310011|2671311011|2671312011|2671313011"
 
 
 def _num(text):
@@ -64,13 +101,12 @@ class AmazonDealFinder:
     def _aff(self, asin):
         return f"https://www.amazon.com/dp/{asin}?tag={self.tag}"
 
-    def _card_to_deal(self, card):
+    def _card_to_deal(self, card, category: str, emoji: str):
         try:
             asin = card.get('data-asin', '')
             if len(asin) != 10:
                 return None
 
-            # Título — usar el span oculto con el texto completo
             title_el = (card.select_one('.a-truncate-full.a-offscreen') or
                         card.select_one('.a-truncate-cut') or
                         card.select_one('[class*="title"] span'))
@@ -78,33 +114,26 @@ class AmazonDealFinder:
             if not title or len(title) < 5:
                 return None
 
-            # Texto completo del card para extraer precios con regex
             txt = card.get_text(' ', strip=True)
 
-            # Descuento
             pct_m = re.search(r'(\d+)%\s*off', txt, re.I)
             disc = int(pct_m.group(1)) if pct_m else 0
             if disc < self.min_discount:
                 return None
 
-            # Precio de oferta — soporta $, USD, COP, etc.
             deal_m = re.search(r'Deal Price[:\s]+(?:[A-Z]{2,3}\s+)?([\d,]+\.?\d*)', txt, re.I)
             sale_price = _num(deal_m.group(1)) if deal_m else None
 
-            # Si no hay "Deal Price", tomar el primer precio del card
             if not sale_price:
-                p_m = re.search(r'(?:\$|USD|COP)\s*([\d,]+\.?\d*)', txt)
+                p_m = re.search(r'(?:\$|USD)\s*([\d,]+\.?\d*)', txt)
                 sale_price = _num(p_m.group(1)) if p_m else None
 
-            # Precio original / List price
             list_m = re.search(r'List:\s*(?:List:\s*)?(?:[A-Z]{2,3}\s+)?([\d,]+\.?\d*)', txt, re.I)
             orig_price = _num(list_m.group(1)) if list_m else None
 
-            # Calcular original si no está
             if not orig_price and sale_price and disc > 0:
                 orig_price = round(sale_price / (1 - disc / 100), 2)
 
-            # Convertir COP → USD si los precios parecen pesos colombianos
             COP_TO_USD = 4100.0
             if sale_price and sale_price > 5000:
                 sale_price = round(sale_price / COP_TO_USD, 2)
@@ -114,7 +143,6 @@ class AmazonDealFinder:
             if not sale_price or not orig_price or orig_price <= sale_price:
                 return None
 
-            # Rating
             rating, count = 0.0, 0
             ra = card.select_one('.a-icon-alt')
             if ra:
@@ -125,11 +153,9 @@ class AmazonDealFinder:
             if rc_m:
                 count = int(rc_m.group(1).replace(',', ''))
 
-            # Imagen
             img = card.select_one('img')
             image_url = img.get('src', '') if img else ''
 
-            # URL del producto
             link = card.select_one(f'a[href*="/dp/{asin}"]') or card.select_one('a[href*="/dp/"]')
             href = link['href'] if link else f"/dp/{asin}"
             if href.startswith('/'): href = 'https://www.amazon.com' + href
@@ -138,12 +164,13 @@ class AmazonDealFinder:
                 title=title, original_price=orig_price, sale_price=sale_price,
                 discount_pct=disc, rating=rating, rating_count=count,
                 image_url=image_url, product_url=href,
-                affiliate_url=self._aff(asin), asin=asin
+                affiliate_url=self._aff(asin), asin=asin,
+                category=category, category_emoji=emoji
             )
-        except Exception as e:
+        except Exception:
             return None
 
-    def find_deals(self, count=2):
+    def find_deals(self, count=10) -> List[Deal]:
         try:
             from playwright.sync_api import sync_playwright
         except ImportError:
@@ -154,15 +181,11 @@ class AmazonDealFinder:
 
         from bs4 import BeautifulSoup
 
-        urls = [
-            "https://www.amazon.com/deals?language=en_US",
-            "https://www.amazon.com/gp/goldbox?language=en_US",
-            "https://www.amazon.com/s?i=todays-deals&rh=p_n_pct-off-with-tax%3A2671309011&language=en_US",
-            "https://www.amazon.com/s?i=todays-deals&rh=p_n_pct-off-with-tax%3A2671310011&language=en_US",
-        ]
-
         deals, seen = [], set()
-        print(f"\n🔍 Buscando deals con ≥{self.min_discount}% descuento...\n")
+        per_category = max(1, count // len(CATEGORY_SEARCHES) + 1)
+
+        print(f"\n🔍 Buscando top {count} deals con ≥{self.min_discount}% descuento...\n")
+        print("   Categorías: Ropa de marca | Zapatos deportivos | Tecnología\n")
 
         with sync_playwright() as p:
             browser = p.chromium.launch(
@@ -186,73 +209,81 @@ class AmazonDealFinder:
                 }
             )
             page = ctx.new_page()
-            # Ocultar indicadores de automation
-            page.add_init_script("""
-                Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-                Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3]});
-                Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
-                window.chrome = {runtime: {}};
-            """)
 
-            for url in urls:
-                if len(deals) >= count * 3: break
-                print(f"   📄 Revisando: {url[:70]}...")
+            for keyword, dept, label, emoji in CATEGORY_SEARCHES:
+                if len(deals) >= count * 2:
+                    break
+                kw_encoded = keyword.replace(' ', '+')
+                url = (
+                    f"https://www.amazon.com/s?k={kw_encoded}"
+                    f"&i={dept}"
+                    f"&rh={DISCOUNT_FILTER.replace('|', '%7C')}"
+                    f"&s=price-asc-rank"
+                    f"&language=en_US"
+                )
+                print(f"   {emoji} Buscando {label}...")
                 try:
                     page.goto(url, timeout=30000, wait_until="domcontentloaded")
-                    try: page.wait_for_selector('[data-asin]', timeout=8000)
-                    except: pass
-                    time.sleep(random.uniform(2, 3))
-                    page.evaluate("window.scrollTo(0, document.body.scrollHeight * 0.4)")
-                    time.sleep(1.5)
+                    try:
+                        page.wait_for_selector('[data-asin]', timeout=8000)
+                    except:
+                        pass
+                    time.sleep(random.uniform(1.5, 2.5))
+                    page.evaluate("window.scrollTo(0, document.body.scrollHeight * 0.5)")
+                    time.sleep(1)
 
                     html = page.content()
                     soup = BeautifulSoup(html, "html.parser")
                     cards = [c for c in soup.select('[data-asin]') if len(c.get('data-asin', '')) == 10]
-                    print(f"      Encontrados {len(cards)} productos...")
+
                     found = 0
                     for card in cards:
-                        deal = self._card_to_deal(card)
+                        if found >= per_category:
+                            break
+                        deal = self._card_to_deal(card, label, emoji)
                         if deal and deal.asin not in seen:
                             seen.add(deal.asin)
                             deals.append(deal)
                             found += 1
                             print(f"      ✅ [{deal.discount_pct}% OFF] ${deal.sale_price:.2f} — {deal.title[:50]}...")
+
                     if found == 0:
-                        print(f"      (0 pasaron el filtro de {self.min_discount}% descuento)")
+                        print(f"      (sin ofertas ≥{self.min_discount}% en esta búsqueda)")
+
                 except Exception as e:
-                    print(f"  ⚠️  Error: {e}")
+                    print(f"      ⚠️  Error: {e}")
 
             browser.close()
 
         deals.sort(key=lambda d: (d.discount_pct, d.rating), reverse=True)
         top = deals[:count]
+
         print(f"\n✨ Top {len(top)} deals seleccionados:\n")
         for i, d in enumerate(top, 1):
-            print(f"   {i}. {d.title[:60]}")
-            print(f"      ${d.sale_price:.2f} (antes ${d.original_price:.2f}) — {d.discount_pct}% OFF")
+            print(f"   {i}. {d.category_emoji} [{d.category}] {d.discount_pct}% OFF")
+            print(f"      {d.title[:60]}")
+            print(f"      ${d.sale_price:.2f} (antes ${d.original_price:.2f})")
             print(f"      🔗 {d.affiliate_url}\n")
+
         return top
 
 
-def main():
+if __name__ == "__main__":
+    import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--tag", required=True)
     parser.add_argument("--min-discount", type=int, default=30)
-    parser.add_argument("--count", type=int, default=2)
+    parser.add_argument("--count", type=int, default=10)
     parser.add_argument("--output", default="deals_output.json")
     args = parser.parse_args()
 
     finder = AmazonDealFinder(affiliate_tag=args.tag, min_discount=args.min_discount)
     deals = finder.find_deals(count=args.count)
     if not deals:
-        print("⚠️  Sin deals. Intenta con --min-discount 20")
+        print("⚠️  Sin deals.")
         sys.exit(1)
 
-    out = {"generated_at": datetime.now().isoformat(), "affiliate_tag": args.tag,
-           "deals": [d.to_dict() for d in deals]}
+    out = {"generated_at": datetime.now().isoformat(), "deals": [d.to_dict() for d in deals]}
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=2)
     print(f"💾 Guardado en: {args.output}")
-
-if __name__ == "__main__":
-    main()
