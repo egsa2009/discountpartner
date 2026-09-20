@@ -192,29 +192,32 @@ def create_post(deal, output_path: str | None = None) -> Image.Image:
         # Puntos suspensivos
         draw.text((540 - 10, y - 10), "…", font=fonts["title"], fill=MUTED)
 
-    # ── Precios ───────────────────────────────────────────────────────────────
+    # ── Precios (solo si disponibles) ────────────────────────────────────────
     y += 18
-    orig_text = f"${deal.original_price:.2f}"
-    _draw_strikethrough(draw, y, orig_text, fonts["price_s"], MUTED)
-    y += fonts["price_s"].size + 14
+    if deal.sale_price > 0:
+        if deal.original_price > deal.sale_price:
+            orig_text = f"${deal.original_price:.2f}"
+            _draw_strikethrough(draw, y, orig_text, fonts["price_s"], MUTED)
+            y += fonts["price_s"].size + 14
 
-    sale_text = f"${deal.sale_price:.2f}"
-    sw = _text_w(draw, sale_text, fonts["price_b"])
-    draw.text(((1080 - sw) / 2, y), sale_text, font=fonts["price_b"], fill=WHITE)
-    y += fonts["price_b"].size + 20
+        sale_text = f"${deal.sale_price:.2f}"
+        sw = _text_w(draw, sale_text, fonts["price_b"])
+        draw.text(((1080 - sw) / 2, y), sale_text, font=fonts["price_b"], fill=WHITE)
+        y += fonts["price_b"].size + 20
 
-    # ── Badge de descuento ────────────────────────────────────────────────────
-    badge_txt = f"  {deal.discount_pct}% OFF  "
-    bw = _text_w(draw, badge_txt, fonts["badge"]) + 20
-    bx = (1080 - bw) / 2
-    _rounded_rect(draw, (bx, y, bx + bw, y + 74), 14, fill=ORANGE)
-    draw.text((bx + 10, y + 10), badge_txt, font=fonts["badge"], fill=WHITE)
-    y += 84
+        if deal.discount_pct > 0:
+            # ── Badge de descuento ──────────────────────────────────────────
+            badge_txt = f"  {deal.discount_pct}% OFF  "
+            bw = _text_w(draw, badge_txt, fonts["badge"]) + 20
+            bx = (1080 - bw) / 2
+            _rounded_rect(draw, (bx, y, bx + bw, y + 74), 14, fill=ORANGE)
+            draw.text((bx + 10, y + 10), badge_txt, font=fonts["badge"], fill=WHITE)
+            y += 84
 
-    # Ahorro
-    savings_txt = f"Ahorras ${deal.savings():.2f}"
-    aw = _text_w(draw, savings_txt, fonts["label"])
-    draw.text(((1080 - aw) / 2, y), savings_txt, font=fonts["label"], fill=GREEN)
+            if deal.savings() > 0:
+                savings_txt = f"Ahorras ${deal.savings():.2f}"
+                aw = _text_w(draw, savings_txt, fonts["label"])
+                draw.text(((1080 - aw) / 2, y), savings_txt, font=fonts["label"], fill=GREEN)
 
     # ── Footer ────────────────────────────────────────────────────────────────
     draw.rectangle([(0, 1022), (1080, 1080)], fill=SURFACE)

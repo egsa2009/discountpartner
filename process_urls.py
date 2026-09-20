@@ -86,7 +86,7 @@ def fetch_amazon_product(url: str, session: requests.Session) -> dict:
         "discount_pct": 0, "image_url": "", "image_bytes": b"", "error": None,
     }
     try:
-        time.sleep(1.0)
+        time.sleep(2.0)
         fetch_url = scraper_url(url)
         resp = session.get(fetch_url, timeout=30, allow_redirects=True)
         if resp.status_code != 200:
@@ -330,10 +330,10 @@ def run_url_pipeline():
 
         # Imagen Instagram
         post_bytes = b""
-        if sale_price > 0:
+        if img_bytes:
             try:
                 deal_obj = Deal(
-                    title=title, original_price=orig_price or sale_price,
+                    title=title, original_price=orig_price,
                     sale_price=sale_price, discount_pct=discount_pct,
                     product_url=clean_url, affiliate_url=affiliate_url,
                     image_url=img_url, image_bytes=img_bytes,
@@ -366,7 +366,7 @@ def run_url_pipeline():
             "sale_price": sale_price, "orig_price": orig_price, "discount_pct": discount_pct,
             "image_found": bool(img_bytes), "sent": ok,
         })
-        time.sleep(0.8)
+        time.sleep(2.5)
 
     print(f"\n{'═'*55}")
     print(f"✨ {sent}/{len(deal_list)} productos enviados a Telegram")
