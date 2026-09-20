@@ -117,6 +117,8 @@
       display: none;
     }
     .deal-card.has-url .price-hint { display: block; }
+    .deal-name-wrap { padding: 0 12px 10px; }
+    .deal-name-wrap input { font-size: 0.82rem; padding: 7px 9px; }
 
     /* URL counter */
     .url-counter {
@@ -242,7 +244,7 @@
     <!-- MANUAL -->
     <div id="section-manual">
       <div class="hint-box">
-        💡 Pega la URL de Amazon · Agrega precio rebajado y original para que salga el % de descuento en Telegram
+        💡 Pega solo la URL de Amazon — los precios, imagen y título se obtienen automáticamente. Los campos de precio son opcionales.
       </div>
 
       <div class="url-counter">URLs: <span id="urlCount">0</span> / 10</div>
@@ -332,6 +334,10 @@
           <input type="number" id="disc-${id}" placeholder="50" min="0" max="99"
             oninput="autoCalcOrig(${id})" />
         </div>
+      </div>
+      <div class="deal-name-wrap" id="namewrap-${id}" style="display:none">
+        <label class="lbl">Nombre del producto <span style="color:var(--accent);font-size:0.65rem">(cópialo de Amazon)</span></label>
+        <input type="text" id="name-${id}" placeholder="Ej: Nike Air Max 270..." />
       </div>`;
 
     document.getElementById('dealList').appendChild(card);
@@ -347,11 +353,14 @@
     const val = inp.value.trim();
     const prices = document.getElementById(`prices-${id}`);
     const card   = document.getElementById(`deal-${id}`);
+    const namewrap = document.getElementById(`namewrap-${id}`);
     if (val.length > 5) {
       prices.style.display = 'grid';
+      if (namewrap) namewrap.style.display = 'block';
       card.classList.add('has-url');
     } else {
       prices.style.display = 'none';
+      if (namewrap) namewrap.style.display = 'none';
       card.classList.remove('has-url');
     }
     // Si pegaron URL y hay siguiente campo vacío, agregar uno nuevo
@@ -415,7 +424,8 @@
       const sale = parseFloat(document.getElementById(`sale-${id}`)?.value) || 0;
       const orig = parseFloat(document.getElementById(`orig-${id}`)?.value) || 0;
       const disc = parseInt(document.getElementById(`disc-${id}`)?.value) || 0;
-      deals.push({ url, sale_price: sale, orig_price: orig, discount_pct: disc });
+      const name = (document.getElementById(\`name-${id}\`)?\.value || '').trim();
+      deals.push({ url, name, sale_price: sale, orig_price: orig, discount_pct: disc });
     });
     return deals;
   }

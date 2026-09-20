@@ -491,6 +491,12 @@ class AmazonDealFinder:
                         orig, sale, disc = extract_prices(f"{title} {summary}")
                         if disc is None or disc < self.min_discount:
                             continue
+                        # Filtrar deals que requieren cupón/código — no son descuento real
+                        coupon_signals = ["w/ code", "w/code", "with code", "promo code",
+                                          "coupon", "clip coupon", "código"]
+                        if any(s in title.lower() for s in coupon_signals):
+                            print(f"      ⚠️  Requiere cupón, omitiendo (Reddit): {title[:50]}")
+                            continue
                         amazon_url = self._amazon_url_from_entry(entry) or self._amazon_url_from_page(sd_link)
                         if not amazon_url:
                             continue
