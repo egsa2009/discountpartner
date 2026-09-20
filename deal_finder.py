@@ -409,7 +409,7 @@ class AmazonDealFinder:
                         try:
                             pub_dt = parsedate_to_datetime(pub_str)
                             age_h = (datetime.now(timezone.utc) - pub_dt).total_seconds() / 3600
-                            if age_h > 4:
+                            if age_h > 24:
                                 print(f"      ⏰ Muy viejo ({age_h:.0f}h): {title[:40]}")
                                 continue
                         except Exception:
@@ -484,7 +484,7 @@ class AmazonDealFinder:
                             try:
                                 pub_dt = parsedate_to_datetime(pub_str)
                                 age_h = (datetime.now(timezone.utc) - pub_dt).total_seconds() / 3600
-                                if age_h > 4:
+                                if age_h > 24:
                                     continue
                             except Exception:
                                 pass
