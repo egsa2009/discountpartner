@@ -39,10 +39,24 @@ HEADERS = {
 
 # ─── ScraperAPI ──────────────────────────────────────────────────────────────
 
+def resolve_short_url(url: str, session: requests.Session) -> str:
+    """Resuelve URLs cortas (amzn.to, a.co) al link real de Amazon."""
+    if "amzn.to" in url or "a.co/d/" in url:
+        try:
+            r = session.head(url, allow_redirects=True, timeout=10)
+            resolved = r.url
+            if "amazon.com" in resolved:
+                print(f"   🔗 URL resuelta: {resolved[:80]}")
+                return resolved
+        except Exception as e:
+            print(f"   ⚠️  No se pudo resolver URL corta: {e}")
+    return url
+
 def scraper_url(url: str) -> str:
     """Envuelve la URL con ScraperAPI si hay key disponible."""
     if SCRAPER_KEY:
-        return f"https://api.scraperapi.com?api_key={SCRAPER_KEY}&url={quote_plus(url)}"
+        return (f"https://api.scraperapi.com?api_key={SCRAPER_KEY}"
+                f"&url={quote_plus(url)}&render=true&country_code=us")
     return url  # fallback sin proxy (puede fallar en GitHub Actions)
 
 # ─── Telegram helpers ────────────────────────────────────────────────────────
@@ -87,8 +101,9 @@ def fetch_amazon_product(url: str, session: requests.Session) -> dict:
     }
     try:
         time.sleep(2.0)
+        url = resolve_short_url(url, session)
         fetch_url = scraper_url(url)
-        resp = session.get(fetch_url, timeout=30, allow_redirects=True)
+        resp = session.get(fetch_url, timeout=45, allow_redirects=True)
         if resp.status_code != 200:
             result["error"] = f"HTTP {resp.status_code}"
             return result
@@ -96,20 +111,33 @@ def fetch_amazon_product(url: str, session: requests.Session) -> dict:
         soup = BeautifulSoup(resp.text, "html.parser")
 
         # ── Título ──────────────────────────────────────────────────────────
-        for sel, attrs in [("span", {"id": "productTitle"}), ("h1", {"id": "title"})]:
+        title_searches = [
+            ("span", {"id": "productTitle"}),
+            ("h1",   {"id": "title"}),
+            ("span", {"class": "product-title-word-break"}),
+        ]
+        for sel, attrs in title_searches:
             el = soup.find(sel, attrs)
             if el:
                 t = _clean(el.get_text())
                 if len(t) > 5:
                     result["title"] = t
                     break
+        # Fallback: og:title
+        if not result["title"]:
+            og = soup.find("meta", property="og:title")
+            if og and og.get("content", "").strip():
+                result["title"] = _clean(og["content"])
 
         # ── Precio de venta ──────────────────────────────────────────────────
         for selector in [
-            "#priceblock_dealprice", "#priceblock_saleprice",
-            ".a-price .a-offscreen", "#price_inside_buybox",
-            "#priceblock_ourprice", ".apexPriceToPay .a-offscreen",
+            ".apexPriceToPay .a-offscreen",
             ".reinventPricePriceToPayMargin .a-offscreen",
+            "#priceblock_dealprice", "#priceblock_saleprice",
+            ".a-price.a-text-price .a-offscreen",
+            ".a-price .a-offscreen", "#price_inside_buybox",
+            "#priceblock_ourprice", "#tp_price_block_total_price_ww .a-offscreen",
+            "#corePrice_feature_div .a-offscreen",
         ]:
             el = soup.select_one(selector)
             if el:
