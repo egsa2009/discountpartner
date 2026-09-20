@@ -398,6 +398,13 @@
           showStatus(`✅ ${data.message}<br><small>Revisa Telegram en ~2 min 📲</small>`, 'ok');
           btn.textContent = '✓ Enviado';
           btn.disabled = false;
+          setTimeout(() => {
+            btn.textContent = '🚀 Procesar y enviar a Telegram';
+            document.getElementById('dealList').innerHTML = '';
+            dealCount = 0;
+            updateCounter();
+            addDeal();
+          }, 3000);
         } else {
           throw new Error(data.error || 'Error desconocido');
         }
