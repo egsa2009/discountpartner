@@ -424,7 +424,7 @@
       const sale = parseFloat(document.getElementById(`sale-${id}`)?.value) || 0;
       const orig = parseFloat(document.getElementById(`orig-${id}`)?.value) || 0;
       const disc = parseInt(document.getElementById(`disc-${id}`)?.value) || 0;
-      const name = (document.getElementById(\`name-${id}\`)?\.value || '').trim();
+      const name = (document.getElementById(`name-${id}`)?.value || '').trim();
       deals.push({ url, name, sale_price: sale, orig_price: orig, discount_pct: disc });
     });
     return deals;
