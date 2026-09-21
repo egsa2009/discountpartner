@@ -1,10 +1,10 @@
 name: Discount Partner — Telegram Deals
 
 on:
-  schedule:
-    - cron: '30 13 * * *'   # 8:30 AM Bogotá (COT = UTC-5)
-    - cron: '30 17 * * *'   # 12:30 PM Bogotá
-    - cron: '30 0 * * *'    # 7:30 PM Bogotá (siguiente día UTC)
+  # schedule:
+    # - cron: '30 13 * * *'   # 8:30 AM Bogotá (COT = UTC-5)
+    # - cron: '30 17 * * *'   # 12:30 PM Bogotá
+    # - cron: '30 0 * * *'    # 7:30 PM Bogotá (siguiente día UTC)
   workflow_dispatch:
     inputs:
       count:
