@@ -130,27 +130,54 @@ def fetch_amazon_product(url: str, session: requests.Session) -> dict:
                 result["title"] = _clean(og["content"])
 
         # ── Precio de venta ──────────────────────────────────────────────────
-        for selector in [
-            ".apexPriceToPay .a-offscreen",
-            ".reinventPricePriceToPayMargin .a-offscreen",
-            "#priceblock_dealprice", "#priceblock_saleprice",
-            ".a-price.a-text-price .a-offscreen",
-            ".a-price .a-offscreen", "#price_inside_buybox",
-            "#priceblock_ourprice", "#tp_price_block_total_price_ww .a-offscreen",
-            "#corePrice_feature_div .a-offscreen",
-        ]:
-            el = soup.select_one(selector)
-            if el:
-                p = _price(el.get_text())
-                if p > 0:
-                    result["sale_price"] = p
-                    break
+        # PRIMERO intentar JSON-LD (más confiable, datos estructurados de Amazon)
+        for script in soup.find_all("script", type="application/ld+json"):
+            try:
+                ld = json.loads(script.string or "")
+                offers = None
+                if isinstance(ld, dict) and ld.get("@type") == "Product":
+                    offers = ld.get("offers", {})
+                elif isinstance(ld, list):
+                    for item in ld:
+                        if isinstance(item, dict) and item.get("@type") == "Product":
+                            offers = item.get("offers", {})
+                            break
+                if offers and isinstance(offers, dict):
+                    p = float(offers.get("price", 0) or 0)
+                    if p > 0:
+                        result["sale_price"] = p
+                        break
+            except Exception:
+                pass
+
+        # Si JSON-LD no dio precio, usar selectores CSS
+        # NOTA: .a-text-price es el PRECIO TACHADO (MSRP), NO el precio de oferta
+        if result["sale_price"] == 0:
+            for selector in [
+                ".apexPriceToPay .a-offscreen",
+                ".reinventPricePriceToPayMargin .a-offscreen",
+                "#priceblock_dealprice",
+                "#priceblock_saleprice",
+                "#price_inside_buybox",
+                "#priceblock_ourprice",
+                "#corePriceDisplay_desktop_feature_div .a-price:not(.a-text-price) .a-offscreen",
+                "#tp_price_block_total_price_ww .a-offscreen",
+                "#newBuyBoxPrice",
+            ]:
+                el = soup.select_one(selector)
+                if el:
+                    p = _price(el.get_text())
+                    if p > 0:
+                        result["sale_price"] = p
+                        break
 
         # ── Precio original (tachado) ────────────────────────────────────────
         for selector in [
-            ".a-text-strike", ".basisPrice .a-offscreen",
-            ".priceBlockStrikePriceString",
+            ".a-text-price .a-offscreen",
             ".a-price[data-a-strike='true'] .a-offscreen",
+            ".basisPrice .a-offscreen",
+            ".priceBlockStrikePriceString",
+            ".a-text-strike",
         ]:
             el = soup.select_one(selector)
             if el:
