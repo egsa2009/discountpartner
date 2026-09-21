@@ -23,15 +23,20 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install feedparser beautifulsoup4 requests pillow --break-system-packages -q
+          pip install feedparser beautifulsoup4 requests pillow cloudinary --break-system-packages -q
 
-      - name: Procesar deals y enviar a Telegram
+      - name: Procesar deals y enviar a Telegram + Instagram
         env:
-          PRODUCT_DEALS:        ${{ github.event.inputs.deals }}
-          SCRAPER_API_KEY:      ${{ secrets.SCRAPER_API_KEY }}
-          AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
-          TELEGRAM_TOKEN:       ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT_ID:     ${{ secrets.TELEGRAM_CHAT_ID }}
+          PRODUCT_DEALS:           ${{ github.event.inputs.deals }}
+          SCRAPER_API_KEY:         ${{ secrets.SCRAPER_API_KEY }}
+          AMAZON_AFFILIATE_TAG:    ${{ secrets.AMAZON_AFFILIATE_TAG }}
+          TELEGRAM_TOKEN:          ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID:        ${{ secrets.TELEGRAM_CHAT_ID }}
+          ZERNIO_API_KEY:          ${{ secrets.ZERNIO_API_KEY }}
+          ZERNIO_IG_ACCOUNT_ID:    ${{ secrets.ZERNIO_IG_ACCOUNT_ID }}
+          CLOUDINARY_CLOUD_NAME:   ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY:      ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET:   ${{ secrets.CLOUDINARY_API_SECRET }}
         run: python process_urls.py
 
       - name: Upload resultados e imágenes

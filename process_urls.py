@@ -1,9 +1,12 @@
 """
-process_urls.py v4 — Scraping Amazon via ScraperAPI (bypass de bloqueo por IP).
+process_urls.py v5 — Scraping Amazon via ScraperAPI + Telegram + Instagram (Zernio).
 Recibe PRODUCT_DEALS como JSON: [{url, sale_price?, orig_price?, discount_pct?}, ...]
 Los precios del usuario son opcionales — si no se dan, se extraen de Amazon via ScraperAPI.
 """
 
+import base64
+import hashlib
+import hmac
 import io
 import json
 import os
@@ -31,6 +34,16 @@ AFFILIATE_TAG = os.environ.get("AMAZON_AFFILIATE_TAG", "discountpartn-20")
 TG_TOKEN      = os.environ.get("TELEGRAM_TOKEN", "")
 TG_CHAT_ID    = os.environ.get("TELEGRAM_CHAT_ID", "")
 
+# Zernio (Instagram)
+ZERNIO_KEY     = os.environ.get("ZERNIO_API_KEY", "")
+ZERNIO_IG_ACCT = os.environ.get("ZERNIO_IG_ACCOUNT_ID", "6ab15f748d284ffb2127d103")
+ZERNIO_API     = "https://api.zernio.com"
+
+# Cloudinary
+CLD_NAME   = os.environ.get("CLOUDINARY_CLOUD_NAME", "")
+CLD_KEY    = os.environ.get("CLOUDINARY_API_KEY", "")
+CLD_SECRET = os.environ.get("CLOUDINARY_API_SECRET", "")
+
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
     "Accept-Language": "en-US,en;q=0.9",
@@ -39,24 +52,10 @@ HEADERS = {
 
 # ─── ScraperAPI ──────────────────────────────────────────────────────────────
 
-def resolve_short_url(url: str, session: requests.Session) -> str:
-    """Resuelve URLs cortas (amzn.to, a.co) al link real de Amazon."""
-    if "amzn.to" in url or "a.co/d/" in url:
-        try:
-            r = session.head(url, allow_redirects=True, timeout=10)
-            resolved = r.url
-            if "amazon.com" in resolved:
-                print(f"   🔗 URL resuelta: {resolved[:80]}")
-                return resolved
-        except Exception as e:
-            print(f"   ⚠️  No se pudo resolver URL corta: {e}")
-    return url
-
 def scraper_url(url: str) -> str:
     """Envuelve la URL con ScraperAPI si hay key disponible."""
     if SCRAPER_KEY:
-        return (f"https://api.scraperapi.com?api_key={SCRAPER_KEY}"
-                f"&url={quote_plus(url)}&render=true&country_code=us")
+        return f"https://api.scraperapi.com?api_key={SCRAPER_KEY}&url={quote_plus(url)}"
     return url  # fallback sin proxy (puede fallar en GitHub Actions)
 
 # ─── Telegram helpers ────────────────────────────────────────────────────────
@@ -84,6 +83,106 @@ def send_telegram_photo(img_bytes: bytes, caption: str) -> bool:
         print(f"   ⚠️  Telegram photo error: {e}")
         return False
 
+# ─── Cloudinary upload ───────────────────────────────────────────────────────
+
+def upload_to_cloudinary(img_bytes: bytes, public_id: str) -> str:
+    """
+    Sube img_bytes a Cloudinary y retorna la URL pública.
+    Usa la API REST directamente (sin SDK).
+    Retorna "" si falla.
+    """
+    if not (CLD_NAME and CLD_KEY and CLD_SECRET):
+        print("   ⚠️  Cloudinary: credenciales no configuradas")
+        return ""
+    try:
+        timestamp = str(int(time.time()))
+        # Firma: sha1("public_id=...&timestamp=...&secret")
+        to_sign   = f"public_id={public_id}&timestamp={timestamp}{CLD_SECRET}"
+        signature = hashlib.sha1(to_sign.encode()).hexdigest()
+
+        upload_url = f"https://api.cloudinary.com/v1_1/{CLD_NAME}/image/upload"
+        resp = requests.post(upload_url, data={
+            "api_key":   CLD_KEY,
+            "timestamp": timestamp,
+            "public_id": public_id,
+            "signature": signature,
+        }, files={"file": ("deal.jpg", img_bytes, "image/jpeg")}, timeout=30)
+
+        if resp.status_code == 200:
+            data = resp.json()
+            url  = data.get("secure_url", "")
+            print(f"   ☁️  Cloudinary OK → {url[:60]}…")
+            return url
+        else:
+            print(f"   ⚠️  Cloudinary error {resp.status_code}: {resp.text[:200]}")
+            return ""
+    except Exception as e:
+        print(f"   ⚠️  Cloudinary excepción: {e}")
+        return ""
+
+# ─── Zernio / Instagram ──────────────────────────────────────────────────────
+
+def make_instagram_caption(title: str, sale_price: float, orig_price: float,
+                           discount_pct: int, affiliate_url: str) -> str:
+    """Caption para Instagram: texto plano, sin HTML, con hashtags."""
+    title_short = title[:100] + ("…" if len(title) > 100 else "")
+    lines = [f"🔥 {discount_pct}% OFF — {title_short}"] if discount_pct else [f"🛍️ {title_short}"]
+
+    if sale_price > 0:
+        if orig_price > sale_price:
+            savings = orig_price - sale_price
+            lines.append(f"💰 ${orig_price:.2f} → ${sale_price:.2f}  (ahorras ${savings:.2f})")
+        else:
+            lines.append(f"💰 ${sale_price:.2f}")
+
+    lines.append(f"🛒 {affiliate_url}")
+    lines.append("")
+    lines.append(
+        "#discountpartner #ofertas #amazon #deals #ofertasamazon "
+        "#ahorra #compras #descuentos #amazondeal #bargain"
+    )
+    return "\n".join(lines)
+
+
+def post_to_instagram(img_url: str, caption: str) -> bool:
+    """
+    Publica en Instagram vía Zernio REST API.
+    img_url debe ser una URL pública accesible (Cloudinary).
+    Retorna True si se publicó exitosamente.
+    """
+    if not ZERNIO_KEY:
+        print("   ⚠️  Zernio: ZERNIO_API_KEY no configurada")
+        return False
+    if not img_url:
+        print("   ⚠️  Zernio: sin URL de imagen para Instagram")
+        return False
+    try:
+        resp = requests.post(
+            f"{ZERNIO_API}/v1/posts",
+            headers={
+                "Authorization": f"Bearer {ZERNIO_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "content": caption,
+                "mediaItems": [{"type": "image", "url": img_url}],
+                "platforms": [{"platform": "instagram", "accountId": ZERNIO_IG_ACCT}],
+                "publishNow": True,
+            },
+            timeout=30,
+        )
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            post_id = data.get("id") or data.get("postId") or "ok"
+            print(f"   📸 Instagram OK → post {post_id}")
+            return True
+        else:
+            print(f"   ⚠️  Zernio error {resp.status_code}: {resp.text[:300]}")
+            return False
+    except Exception as e:
+        print(f"   ⚠️  Zernio excepción: {e}")
+        return False
+
 # ─── Amazon scraper (via ScraperAPI) ─────────────────────────────────────────
 
 def _price(text: str) -> float:
@@ -100,10 +199,9 @@ def fetch_amazon_product(url: str, session: requests.Session) -> dict:
         "discount_pct": 0, "image_url": "", "image_bytes": b"", "error": None,
     }
     try:
-        time.sleep(2.0)
-        url = resolve_short_url(url, session)
+        time.sleep(1.0)
         fetch_url = scraper_url(url)
-        resp = session.get(fetch_url, timeout=45, allow_redirects=True)
+        resp = session.get(fetch_url, timeout=30, allow_redirects=True)
         if resp.status_code != 200:
             result["error"] = f"HTTP {resp.status_code}"
             return result
@@ -111,23 +209,13 @@ def fetch_amazon_product(url: str, session: requests.Session) -> dict:
         soup = BeautifulSoup(resp.text, "html.parser")
 
         # ── Título ──────────────────────────────────────────────────────────
-        title_searches = [
-            ("span", {"id": "productTitle"}),
-            ("h1",   {"id": "title"}),
-            ("span", {"class": "product-title-word-break"}),
-        ]
-        for sel, attrs in title_searches:
+        for sel, attrs in [("span", {"id": "productTitle"}), ("h1", {"id": "title"})]:
             el = soup.find(sel, attrs)
             if el:
                 t = _clean(el.get_text())
                 if len(t) > 5:
                     result["title"] = t
                     break
-        # Fallback: og:title
-        if not result["title"]:
-            og = soup.find("meta", property="og:title")
-            if og and og.get("content", "").strip():
-                result["title"] = _clean(og["content"])
 
         # ── Precio de venta ──────────────────────────────────────────────────
         # PRIMERO intentar JSON-LD (más confiable, datos estructurados de Amazon)
@@ -173,7 +261,7 @@ def fetch_amazon_product(url: str, session: requests.Session) -> dict:
 
         # ── Precio original (tachado) ────────────────────────────────────────
         for selector in [
-            ".a-text-price .a-offscreen",
+            ".a-text-price .a-offscreen",            # clase principal Amazon para MSRP
             ".a-price[data-a-strike='true'] .a-offscreen",
             ".basisPrice .a-offscreen",
             ".priceBlockStrikePriceString",
@@ -292,9 +380,10 @@ def make_caption(index: int, title: str, sale_price: float, original_price: floa
 
 def run_url_pipeline():
     print("\n" + "═" * 55)
-    print("   🔗  Discount Partner — Manual v4 + ScraperAPI")
+    print("   🔗  Discount Partner — Manual v5 + ScraperAPI + Instagram")
     print(f"   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"   ScraperAPI: {'✅ activo' if SCRAPER_KEY else '❌ sin key'}")
+    print(f"   Instagram:  {'✅ activo' if ZERNIO_KEY else '❌ sin ZERNIO_API_KEY'}")
     print("═" * 55 + "\n")
 
     deals_raw = os.environ.get("PRODUCT_DEALS", "")
@@ -339,7 +428,7 @@ def run_url_pipeline():
     send_telegram_text(header)
     time.sleep(1)
 
-    sent, results = 0, []
+    sent, ig_sent, results = 0, 0, []
 
     for i, deal in enumerate(deal_list, 1):
         product_url = deal["url"]
@@ -383,12 +472,12 @@ def run_url_pipeline():
         affiliate_url = add_affiliate_tag(clean_url, AFFILIATE_TAG)
         caption = make_caption(i, title, sale_price, orig_price, discount_pct, affiliate_url, asin)
 
-        # Imagen Instagram
+        # ── Imagen diseñada para Instagram ───────────────────────────────────
         post_bytes = b""
-        if img_bytes:
+        if sale_price > 0:
             try:
                 deal_obj = Deal(
-                    title=title, original_price=orig_price,
+                    title=title, original_price=orig_price or sale_price,
                     sale_price=sale_price, discount_pct=discount_pct,
                     product_url=clean_url, affiliate_url=affiliate_url,
                     image_url=img_url, image_bytes=img_bytes,
@@ -399,36 +488,60 @@ def run_url_pipeline():
                 buf = io.BytesIO()
                 img_canvas.save(buf, "JPEG", quality=92)
                 post_bytes = buf.getvalue()
-                print(f"   🎨 Imagen Instagram: {len(post_bytes)//1024} KB")
+                print(f"   🎨 Imagen diseñada: {len(post_bytes)//1024} KB")
             except Exception as e:
-                print(f"   ⚠️  Error imagen Instagram: {e}")
+                print(f"   ⚠️  Error imagen: {e}")
 
-        # Enviar a Telegram
+        # ── Enviar a Telegram ─────────────────────────────────────────────────
         if post_bytes:
-            ok = send_telegram_photo(post_bytes, caption)
+            tg_ok = send_telegram_photo(post_bytes, caption)
         elif img_bytes:
-            ok = send_telegram_photo(img_bytes, caption)
+            tg_ok = send_telegram_photo(img_bytes, caption)
         else:
-            ok = send_telegram_text(caption)
+            tg_ok = send_telegram_text(caption)
 
-        status = "✅" if ok else "❌"
+        status = "✅" if tg_ok else "❌"
         print(f"   {status} Telegram")
-        if ok:
+        if tg_ok:
             sent += 1
+
+        # ── Publicar en Instagram (solo si tenemos imagen diseñada) ───────────
+        ig_ok = False
+        if post_bytes and ZERNIO_KEY:
+            print("   📤 Subiendo imagen a Cloudinary…")
+            public_id = f"discountpartner/deal_{asin or datetime.now().strftime('%Y%m%d%H%M%S')}_{i}"
+            img_public_url = upload_to_cloudinary(post_bytes, public_id)
+
+            if img_public_url:
+                ig_caption = make_instagram_caption(
+                    title, sale_price, orig_price, discount_pct, affiliate_url
+                )
+                print("   📸 Publicando en Instagram vía Zernio…")
+                ig_ok = post_to_instagram(img_public_url, ig_caption)
+                if ig_ok:
+                    ig_sent += 1
+        elif not ZERNIO_KEY:
+            print("   ⏭️  Instagram omitido (ZERNIO_API_KEY no configurada)")
+        elif not post_bytes:
+            print("   ⏭️  Instagram omitido (sin imagen diseñada)")
+
+        ig_status = "✅" if ig_ok else ("⏭️" if not ZERNIO_KEY or not post_bytes else "❌")
+        print(f"   {ig_status} Instagram")
 
         results.append({
             "url": product_url, "asin": asin, "title": title,
             "sale_price": sale_price, "orig_price": orig_price, "discount_pct": discount_pct,
-            "image_found": bool(img_bytes), "sent": ok,
+            "image_found": bool(img_bytes), "sent_telegram": tg_ok, "sent_instagram": ig_ok,
         })
-        time.sleep(2.5)
+        time.sleep(0.8)
 
     print(f"\n{'═'*55}")
-    print(f"✨ {sent}/{len(deal_list)} productos enviados a Telegram")
+    print(f"✨ Telegram:  {sent}/{len(deal_list)} enviados")
+    print(f"📸 Instagram: {ig_sent}/{len(deal_list)} publicados")
 
     Path(__file__).parent.joinpath("deals_output.json").write_text(
         json.dumps({"generated_at": datetime.now().isoformat(),
-                    "mode": "manual_v4", "sent": sent,
+                    "mode": "manual_v5", "sent_telegram": sent, "sent_instagram": ig_sent,
                     "total": len(deal_list), "results": results},
                    ensure_ascii=False, indent=2), encoding="utf-8"
     )
