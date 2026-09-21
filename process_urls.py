@@ -50,6 +50,30 @@ HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
 }
 
+# ─── Resolver links cortos ───────────────────────────────────────────────────
+
+def resolve_amazon_url(url: str) -> str:
+    """
+    Sigue redirects de links cortos (amzn.to, a.co/d/) hasta obtener
+    la URL completa de Amazon con ASIN. Sin ScraperAPI (solo HEAD request).
+    """
+    short_domains = ("amzn.to", "a.co", "amzn.com")
+    if not any(d in url for d in short_domains):
+        return url
+    try:
+        # HEAD request rápido para seguir redirects
+        r = requests.head(url, allow_redirects=True, timeout=10, headers={
+            "User-Agent": HEADERS["User-Agent"]
+        })
+        final = r.url
+        # Limpiar parámetros innecesarios pero conservar el path con ASIN
+        if "amazon.com" in final and "/dp/" in final:
+            print(f"   🔗 Resuelto: {url} → {final[:80]}")
+            return final
+    except Exception as e:
+        print(f"   ⚠️  No se pudo resolver URL corta: {e}")
+    return url
+
 # ─── ScraperAPI ──────────────────────────────────────────────────────────────
 
 def scraper_url(url: str) -> str:
@@ -439,6 +463,10 @@ def run_url_pipeline():
 
         print(f"\n── Producto #{i} ────────────────────────────────")
         print(f"   URL: {product_url[:70]}")
+
+        # Resolver links cortos (amzn.to, a.co) antes de scrapearlo
+        product_url = resolve_amazon_url(product_url)
+
         asin = _extract_asin(product_url)
         print(f"   ASIN: {asin or '(no encontrado)'}")
 
