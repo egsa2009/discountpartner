@@ -283,43 +283,39 @@ def fetch_amazon_product(url: str, session: requests.Session) -> dict:
                         result["sale_price"] = p
                         break
 
-        # ── Precio original / Precio recomendado (tachado) ─────────────────
-        # ORDEN IMPORTANTE: basisPrice primero = "Precio recomendado" de Amazon.
-        # .a-text-price puede capturar precios por unidad (onza, ml) — va al final.
-        # Condición: el precio original DEBE ser mayor al precio de venta.
-        for selector in [
-            "#corePriceDisplay_desktop_feature_div .basisPrice .a-offscreen",
-            ".basisPrice .a-offscreen",              # "Precio recomendado" Amazon
-            ".a-price[data-a-strike=\'true\'] .a-offscreen",
-            "#listPrice",
-            ".priceBlockStrikePriceString",
-            ".a-text-strike",
-            ".a-text-price .a-offscreen",            # último recurso (puede ser por unidad)
-        ]:
+        # ── Descuento % (primero — se usa para calcular el original) ────────
+        # Prioridad: .savingsPercentage de Amazon (el % real mostrado en la página)
+        for selector in [".savingsPercentage", "#savingsPercentage"]:
             el = soup.select_one(selector)
             if el:
-                p = _price(el.get_text())
-                # Solo aceptar si es MAYOR al precio de venta (evita precios por unidad)
-                if p > 0 and p > result["sale_price"] and p != result["sale_price"]:
-                    result["original_price"] = p
+                m = re.search(r"(\d+)\s*%", el.get_text())
+                if m:
+                    result["discount_pct"] = int(m.group(1))
                     break
 
-        # ── Descuento ────────────────────────────────────────────────────────
-        if result["sale_price"] > 0 and result["original_price"] > result["sale_price"]:
-            result["discount_pct"] = int(round(
-                (1 - result["sale_price"] / result["original_price"]) * 100
-            ))
+        # ── Precio original: calculado desde sale_price + discount_pct ───────
+        # Más confiable que scrapejar "Precio recomendado" directamente,
+        # que puede capturar precios por unidad (onza, ml) u otras variantes.
+        if result["sale_price"] > 0 and result["discount_pct"] > 0:
+            result["original_price"] = round(
+                result["sale_price"] / (1 - result["discount_pct"] / 100), 2
+            )
         else:
-            for selector in [".savingsPercentage", "#savingsPercentage"]:
+            # Fallback: intentar scrapejar el precio tachado directamente
+            for selector in [
+                "#corePriceDisplay_desktop_feature_div .basisPrice .a-offscreen",
+                ".basisPrice .a-offscreen",
+                ".a-price[data-a-strike=\'true\'] .a-offscreen",
+                "#listPrice",
+            ]:
                 el = soup.select_one(selector)
                 if el:
-                    m = re.search(r"(\d+)\s*%", el.get_text())
-                    if m:
-                        result["discount_pct"] = int(m.group(1))
-                        if result["sale_price"] > 0 and result["original_price"] == 0:
-                            result["original_price"] = round(
-                                result["sale_price"] / (1 - result["discount_pct"] / 100), 2
-                            )
+                    p = _price(el.get_text())
+                    if p > 0 and p > result["sale_price"]:
+                        result["original_price"] = p
+                        result["discount_pct"] = int(round(
+                            (1 - result["sale_price"] / p) * 100
+                        ))
                         break
 
         if result["sale_price"] > 0 and result["original_price"] == 0:
