@@ -485,6 +485,11 @@ def run_url_pipeline():
         orig_price   = user_orig   if user_orig   > 0 else data["original_price"]
         discount_pct = user_disc   if user_disc   > 0 else data["discount_pct"]
 
+        # VALIDACIÓN: orig_price no puede ser ≤ sale_price (error de scraping)
+        if orig_price > 0 and orig_price <= sale_price:
+            print(f"   ⚠️  Precio original (${orig_price:.2f}) ≤ venta (${sale_price:.2f}) — error scraping, recalculando desde discount_pct")
+            orig_price = 0
+
         # Calcular descuento si tenemos ambos precios
         if sale_price > 0 and orig_price > sale_price and discount_pct == 0:
             discount_pct = int(round((1 - sale_price / orig_price) * 100))
