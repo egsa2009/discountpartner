@@ -283,18 +283,24 @@ def fetch_amazon_product(url: str, session: requests.Session) -> dict:
                         result["sale_price"] = p
                         break
 
-        # ── Precio original (tachado) ────────────────────────────────────────
+        # ── Precio original / Precio recomendado (tachado) ─────────────────
+        # ORDEN IMPORTANTE: basisPrice primero = "Precio recomendado" de Amazon.
+        # .a-text-price puede capturar precios por unidad (onza, ml) — va al final.
+        # Condición: el precio original DEBE ser mayor al precio de venta.
         for selector in [
-            ".a-text-price .a-offscreen",            # clase principal Amazon para MSRP
-            ".a-price[data-a-strike='true'] .a-offscreen",
-            ".basisPrice .a-offscreen",
+            "#corePriceDisplay_desktop_feature_div .basisPrice .a-offscreen",
+            ".basisPrice .a-offscreen",              # "Precio recomendado" Amazon
+            ".a-price[data-a-strike=\'true\'] .a-offscreen",
+            "#listPrice",
             ".priceBlockStrikePriceString",
             ".a-text-strike",
+            ".a-text-price .a-offscreen",            # último recurso (puede ser por unidad)
         ]:
             el = soup.select_one(selector)
             if el:
                 p = _price(el.get_text())
-                if p > 0 and p != result["sale_price"]:
+                # Solo aceptar si es MAYOR al precio de venta (evita precios por unidad)
+                if p > 0 and p > result["sale_price"] and p != result["sale_price"]:
                     result["original_price"] = p
                     break
 
