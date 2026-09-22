@@ -77,9 +77,23 @@ def resolve_amazon_url(url: str) -> str:
 # ─── ScraperAPI ──────────────────────────────────────────────────────────────
 
 def scraper_url(url: str) -> str:
-    """Envuelve la URL con ScraperAPI si hay key disponible."""
+    """Envuelve la URL con ScraperAPI si hay key disponible.
+    render=true: fuerza renderizado JS en vivo (precio actual, no cacheado).
+    _cb: cache-buster aleatorio para evitar que ScraperAPI sirva página cacheada.
+    """
     if SCRAPER_KEY:
-        return f"https://api.scraperapi.com?api_key={SCRAPER_KEY}&url={quote_plus(url)}"
+        import random
+        cb = random.randint(100000, 999999)
+        # Añadir cache-buster a la URL de Amazon (Amazon lo ignora, ScraperAPI lo trata como nueva URL)
+        sep = "&" if "?" in url else "?"
+        fresh_url = f"{url}{sep}_cb={cb}"
+        return (
+            f"https://api.scraperapi.com"
+            f"?api_key={SCRAPER_KEY}"
+            f"&render=true"
+            f"&country_code=us"
+            f"&url={quote_plus(fresh_url)}"
+        )
     return url  # fallback sin proxy (puede fallar en GitHub Actions)
 
 # ─── Telegram helpers ────────────────────────────────────────────────────────
