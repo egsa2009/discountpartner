@@ -373,6 +373,41 @@ def fetch_amazon_product(url: str, session: requests.Session) -> dict:
 
     return result
 
+# ─── CTA aleatorios ──────────────────────────────────────────────────────────
+
+def _cta_hook(name: str, pct: int) -> str:
+    import random
+    if pct >= 50:
+        opts = [f"🚨 ¡LOCURA! <b>{name}</b> a MITAD DE PRECIO o menos. ¡Cómpralo YA antes de que se agote!",
+                f"🤯 <b>{name}</b> con {pct}% OFF… ¡esto no dura! Asegura el tuyo ahora 👇",
+                f"⚡ Precio increíble: <b>{name}</b> con {pct}% de descuento. ¡Corre por el tuyo!"]
+    elif pct >= 30:
+        opts = [f"🔥 <b>{name}</b> con {pct}% OFF. ¡Buen momento para comprarlo, no lo dejes pasar!",
+                f"💥 ¡Oferta fuerte! <b>{name}</b> rebajado {pct}%. Aprovecha antes de que suba 👇",
+                f"⏰ <b>{name}</b> a {pct}% menos. ¡Compra hoy y ahorra de verdad!"]
+    elif pct > 0:
+        opts = [f"✅ <b>{name}</b> con {pct}% OFF. ¡Buen precio para llevártelo hoy!",
+                f"🛒 ¿Lo estabas esperando? <b>{name}</b> baja {pct}%. ¡Aprovecha ya!",
+                f"👀 <b>{name}</b> con descuento del {pct}%. ¡No lo dejes para después!"]
+    else:
+        opts = [f"🛒 <b>{name}</b> disponible ahora. ¡Míralo y llévatelo!",
+                f"👀 Encontramos <b>{name}</b> para ti. ¡Aprovecha antes de que cambie el precio!"]
+    return random.choice(opts)
+
+
+def _engage_cta() -> str:
+    import random
+    return random.choice([
+        "❤️ ¡Dale me gusta si te encantó esta oferta!",
+        "💬 Cuéntame en los comentarios: ¿lo comprarías?",
+        "🔖 Guárdalo para no perder esta oferta.",
+        "📲 Compártelo con quien lo necesite.",
+        "💬 Comenta “QUIERO” y te ayudo a comprarlo.",
+        "🔖 Guarda este post para comprarlo después.",
+        "❤️ Un ❤️ si quieres más ofertas como esta.",
+        "📲 Envíaselo a ese amigo que anda buscando esto.",
+    ])
+
 # ─── Caption Telegram ────────────────────────────────────────────────────────
 
 def make_caption(index: int, title: str, sale_price: float, original_price: float,
@@ -404,16 +439,19 @@ def make_caption(index: int, title: str, sale_price: float, original_price: floa
         f"&ship-to-country=CO&tag={AFFILIATE_TAG}"
     )
 
-    lines = [f"{emoji} <b>OFERTA #{index} — {cat_name}</b>", f"📦 {title_short}", ""]
+    name = title.split("|")[0].split(",")[0].strip()
+    name = name[:45].rstrip() + ("…" if len(name) > 45 else "")
+    hook = _cta_hook(name, discount_pct)
+    lines = [hook]
     if discount_pct > 0 and sale_price > 0:
         lines += [
             f"💰 <s>${original_price:.2f}</s> → <b>${sale_price:.2f}</b>",
             f"🔥 <b>{discount_pct}% OFF</b>" + (f" — Ahorras ${savings:.2f}" if savings > 0 else ""),
-            "",
         ]
     elif sale_price > 0:
-        lines += [f"💰 <b>${sale_price:.2f}</b>", ""]
-    lines += [f"🛒 <b>Comprar:</b> {short_url}", f"🌎 <b>Amazon Colombia:</b> {colombia_url}"]
+        lines += [f"💰 <b>${sale_price:.2f}</b>"]
+    lines += [_engage_cta(),
+              f"🛒 <b>Comprar:</b> {short_url}", f"🌎 <b>Amazon Colombia:</b> {colombia_url}"]
     return "\n".join(lines)
 
 # ─── Pipeline ────────────────────────────────────────────────────────────────
