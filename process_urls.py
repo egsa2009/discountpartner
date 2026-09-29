@@ -378,21 +378,33 @@ def fetch_amazon_product(url: str, session: requests.Session) -> dict:
 def _cta_hook(name: str, pct: int) -> str:
     import random
     if pct >= 50:
-        opts = [f"🚨 ¡LOCURA! <b>{name}</b> a MITAD DE PRECIO o menos. ¡Cómpralo YA antes de que se agote!",
-                f"🤯 <b>{name}</b> con {pct}% OFF… ¡esto no dura! Asegura el tuyo ahora 👇",
-                f"⚡ Precio increíble: <b>{name}</b> con {pct}% de descuento. ¡Corre por el tuyo!"]
+        opts = [f"🚨 ¡LOCURA! <b>{name}</b> a MITAD DE PRECIO o menos. ¡Se agota rápido!",
+                f"🤯 <b>{name}</b> con {pct}% OFF… ¡esto no dura!",
+                f"⚡ Precio increíble: <b>{name}</b> con {pct}% de descuento. ¡Está increíble!"]
     elif pct >= 30:
-        opts = [f"🔥 <b>{name}</b> con {pct}% OFF. ¡Buen momento para comprarlo, no lo dejes pasar!",
-                f"💥 ¡Oferta fuerte! <b>{name}</b> rebajado {pct}%. Aprovecha antes de que suba 👇",
-                f"⏰ <b>{name}</b> a {pct}% menos. ¡Compra hoy y ahorra de verdad!"]
+        opts = [f"🔥 <b>{name}</b> con {pct}% OFF. ¡Buen momento para comprarlo!",
+                f"💥 ¡Oferta fuerte! <b>{name}</b> rebajado {pct}%. Puede subir en cualquier momento.",
+                f"⏰ <b>{name}</b> a {pct}% menos. ¡Ahorra de verdad!"]
     elif pct > 0:
-        opts = [f"✅ <b>{name}</b> con {pct}% OFF. ¡Buen precio para llevártelo hoy!",
-                f"🛒 ¿Lo estabas esperando? <b>{name}</b> baja {pct}%. ¡Aprovecha ya!",
-                f"👀 <b>{name}</b> con descuento del {pct}%. ¡No lo dejes para después!"]
+        opts = [f"✅ <b>{name}</b> con {pct}% OFF. ¡Muy buen precio!",
+                f"🛒 ¿Lo estabas esperando? <b>{name}</b> baja {pct}%. ¡Está en oferta!",
+                f"👀 <b>{name}</b> con descuento del {pct}%. ¡Buen descuento!"]
     else:
-        opts = [f"🛒 <b>{name}</b> disponible ahora. ¡Míralo y llévatelo!",
-                f"👀 Encontramos <b>{name}</b> para ti. ¡Aprovecha antes de que cambie el precio!"]
+        opts = [f"🛒 <b>{name}</b> disponible ahora. ¡Míralo!",
+                f"👀 Encontramos <b>{name}</b> para ti. ¡El precio puede cambiar!"]
     return random.choice(opts)
+
+
+def _urgency_cta() -> str:
+    import random
+    return random.choice([
+        "⏳ ¡Aprovecha ya la promo, puede terminar en cualquier momento!",
+        "🏃 ¡Aprovecha ya! Los precios de Amazon cambian rápido.",
+        "⚡ ¡Aprovéchala ahora antes de que se acabe la promo!",
+        "🔔 ¡Aprovecha ya la promo y asegura tu precio!",
+        "🛍️ ¡Es hoy! Aprovecha ya esta promo.",
+        "⏰ ¡No esperes más, aprovecha ya la promo!",
+    ])
 
 
 def _engage_cta() -> str:
@@ -450,7 +462,7 @@ def make_caption(index: int, title: str, sale_price: float, original_price: floa
         ]
     elif sale_price > 0:
         lines += [f"💰 <b>${sale_price:.2f}</b>"]
-    lines += [_engage_cta(),
+    lines += [_engage_cta(), _urgency_cta(),
               f"🛒 <b>Comprar:</b> {short_url}", f"🌎 <b>Amazon Colombia:</b> {colombia_url}"]
     return "\n".join(lines)
 
