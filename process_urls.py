@@ -396,14 +396,18 @@ def _cta_hook(name: str, pct: int) -> str:
 
 
 def _urgency_cta() -> str:
+    """Solo aparece en ~40% de los mensajes; el resto sale sin línea de urgencia."""
     import random
+    if random.random() > 0.4:
+        return ""
     return random.choice([
+        "✨ ¡Aprovecha ya la promo!",
+        "🎁 ¡Aprovecha ya, la promo está activa!",
+        "💛 ¡Aprovéchala ya y ahorra!",
+        "🛍️ Aprovecha ya esta promo y asegura tu precio.",
         "📦 ¡Aprovecha ya! Las existencias pueden agotarse.",
-        "✨ Aprovecha ya la promo, las unidades pueden agotarse.",
-        "🛍️ ¡Aprovéchala ya! El stock es limitado y puede agotarse.",
-        "⏳ Aprovecha ya, las existencias pueden terminarse pronto.",
-        "👉 ¡Asegura el tuyo ya! Las unidades pueden agotarse.",
-        "💛 Aprovecha ya la promo antes de que se agoten las existencias.",
+        "⏳ Aprovecha ya, las unidades pueden terminarse pronto.",
+        "👉 ¡Asegura el tuyo ya! El stock puede agotarse.",
     ])
 
 
@@ -462,7 +466,8 @@ def make_caption(index: int, title: str, sale_price: float, original_price: floa
         ]
     elif sale_price > 0:
         lines += [f"💰 <b>${sale_price:.2f}</b>"]
-    lines += [_engage_cta(), _urgency_cta(),
+    urg = _urgency_cta()
+    lines += [_engage_cta()] + ([urg] if urg else []) + [
               f"🛒 <b>Comprar:</b> {short_url}", f"🌎 <b>Amazon Colombia:</b> {colombia_url}"]
     return "\n".join(lines)
 
