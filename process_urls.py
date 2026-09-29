@@ -29,7 +29,8 @@ except ImportError as e:
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 
-SCRAPER_KEY   = os.environ.get("SCRAPER_API_KEY", "")
+# Si existe SCRAPER_API_KEY_NUEVA se usa esa; si no, la clave original.
+SCRAPER_KEY   = os.environ.get("SCRAPER_API_KEY_NUEVA", "").strip() or os.environ.get("SCRAPER_API_KEY", "")
 AFFILIATE_TAG = os.environ.get("AMAZON_AFFILIATE_TAG", "discountpartn-20")
 TG_TOKEN      = os.environ.get("TELEGRAM_TOKEN", "")
 TG_CHAT_ID    = os.environ.get("TELEGRAM_CHAT_ID", "")
