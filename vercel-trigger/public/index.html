@@ -69,7 +69,13 @@
       padding: 9px 11px; font-size: 0.88rem; color: var(--text);
       outline: none; transition: border-color 0.15s; font-family: inherit;
     }
-    input:focus { border-color: var(--accent); }
+    input:focus, select:focus { border-color: var(--accent); }
+    select {
+      width: 100%; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 9px 11px; font-size: 0.88rem; color: var(--text);
+      outline: none; font-family: inherit;
+    }
     input::placeholder { color: #3a3a44; }
 
     /* Deal card */
@@ -213,6 +219,16 @@
     <div class="card-title">🔐 Acceso</div>
     <label class="lbl" for="pwd">Contraseña</label>
     <input type="password" id="pwd" placeholder="••••••••" autocomplete="current-password" />
+  </div>
+
+  <!-- Cuenta ScraperAPI -->
+  <div class="card">
+    <div class="card-title">🔑 Cuenta de ScraperAPI</div>
+    <label class="lbl" for="cuenta">Se queda seleccionada hasta que la cambies</label>
+    <select id="cuenta" onchange="saveCuenta()">
+      <option value="actual">Cuenta actual (SCRAPER_API_KEY)</option>
+      <option value="nueva">Cuenta nueva (SCRAPER_API_KEY_NUEVA)</option>
+    </select>
   </div>
 
   <!-- Mode + deals -->
@@ -372,6 +388,16 @@
     el.className = ''; el.style.display = 'none';
   }
 
+  function saveCuenta() {
+    try { localStorage.setItem('dp_cuenta', document.getElementById('cuenta').value); } catch (e) {}
+  }
+  (function loadCuenta() {
+    try {
+      const c = localStorage.getItem('dp_cuenta');
+      if (c === 'actual' || c === 'nueva') document.getElementById('cuenta').value = c;
+    } catch (e) {}
+  })();
+
   async function run() {
     const btn = document.getElementById('runBtn');
     const pwd = document.getElementById('pwd').value.trim();
@@ -391,7 +417,7 @@
         const resp = await fetch('/api/trigger', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: pwd, mode: 'manual', deals }),
+          body: JSON.stringify({ password: pwd, mode: 'manual', deals, cuenta: document.getElementById('cuenta').value }),
         });
         const data = await resp.json();
         if (resp.ok && data.success) {

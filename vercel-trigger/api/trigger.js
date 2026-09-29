@@ -6,7 +6,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { password, mode, deals, count, dry_run } = req.body || {};
+  const { password, mode, deals, count, dry_run, cuenta } = req.body || {};
 
   if (!process.env.PAGE_PASSWORD || password !== process.env.PAGE_PASSWORD) {
     return res.status(401).json({ error: "Contraseña incorrecta" });
@@ -44,6 +44,7 @@ module.exports = async function handler(req, res) {
           ref: "main",
           inputs: {
             deals: JSON.stringify(validDeals),
+            cuenta: cuenta === "nueva" || cuenta === "actual" ? cuenta : "",
           },
         }),
       });
