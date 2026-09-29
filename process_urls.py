@@ -378,32 +378,32 @@ def fetch_amazon_product(url: str, session: requests.Session) -> dict:
 def _cta_hook(name: str, pct: int) -> str:
     import random
     if pct >= 50:
-        opts = [f"🚨 ¡LOCURA! <b>{name}</b> a MITAD DE PRECIO o menos. ¡Se agota rápido!",
-                f"🤯 <b>{name}</b> con {pct}% OFF… ¡esto no dura!",
-                f"⚡ Precio increíble: <b>{name}</b> con {pct}% de descuento. ¡Está increíble!"]
+        opts = [f"🤩 <b>{name}</b> con {pct}% OFF. ¡Una oferta que vale la pena!",
+                f"🎉 ¡Mira este descuento! <b>{name}</b> a {pct}% menos.",
+                f"😍 <b>{name}</b> casi a mitad de precio. ¡Te va a encantar!"]
     elif pct >= 30:
         opts = [f"🔥 <b>{name}</b> con {pct}% OFF. ¡Buen momento para comprarlo!",
-                f"💥 ¡Oferta fuerte! <b>{name}</b> rebajado {pct}%. Puede subir en cualquier momento.",
-                f"⏰ <b>{name}</b> a {pct}% menos. ¡Ahorra de verdad!"]
+                f"✨ ¡Buena oferta! <b>{name}</b> con {pct}% de descuento.",
+                f"🛒 <b>{name}</b> a {pct}% menos. ¡Ahorra de verdad!"]
     elif pct > 0:
         opts = [f"✅ <b>{name}</b> con {pct}% OFF. ¡Muy buen precio!",
-                f"🛒 ¿Lo estabas esperando? <b>{name}</b> baja {pct}%. ¡Está en oferta!",
-                f"👀 <b>{name}</b> con descuento del {pct}%. ¡Buen descuento!"]
+                f"🛒 ¿Lo estabas esperando? <b>{name}</b> baja {pct}%.",
+                f"👀 <b>{name}</b> con {pct}% de descuento. ¡Míralo!"]
     else:
         opts = [f"🛒 <b>{name}</b> disponible ahora. ¡Míralo!",
-                f"👀 Encontramos <b>{name}</b> para ti. ¡El precio puede cambiar!"]
+                f"👀 Encontramos <b>{name}</b> para ti."]
     return random.choice(opts)
 
 
 def _urgency_cta() -> str:
     import random
     return random.choice([
-        "⏳ ¡Aprovecha ya la promo, puede terminar en cualquier momento!",
-        "🏃 ¡Aprovecha ya! Los precios de Amazon cambian rápido.",
-        "⚡ ¡Aprovéchala ahora antes de que se acabe la promo!",
-        "🔔 ¡Aprovecha ya la promo y asegura tu precio!",
-        "🛍️ ¡Es hoy! Aprovecha ya esta promo.",
-        "⏰ ¡No esperes más, aprovecha ya la promo!",
+        "✨ ¡Aprovecha ya la promo!",
+        "🛍️ Aprovecha ya esta promo y asegura tu precio.",
+        "😉 Es un buen momento para aprovechar la promo.",
+        "🎁 ¡Aprovecha ya, la promo está activa!",
+        "👉 Aprovecha ya la promo antes de que cambie el precio.",
+        "💛 ¡Aprovéchala ya y ahorra!",
     ])
 
 
