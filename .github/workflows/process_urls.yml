@@ -6,6 +6,15 @@ on:
       deals:
         description: 'JSON array de deals [{url, sale_price, orig_price, discount_pct}]'
         required: true
+      cuenta:
+        description: 'Cuenta ScraperAPI a usar (vacío = la definida en la variable SCRAPER_CUENTA)'
+        required: false
+        type: choice
+        default: ''
+        options:
+          - ''
+          - actual
+          - nueva
 
 jobs:
   process:
@@ -30,6 +39,7 @@ jobs:
           PRODUCT_DEALS:        ${{ github.event.inputs.deals }}
           SCRAPER_API_KEY:      ${{ secrets.SCRAPER_API_KEY }}
           SCRAPER_API_KEY_NUEVA: ${{ secrets.SCRAPER_API_KEY_NUEVA }}
+          SCRAPER_CUENTA:       ${{ github.event.inputs.cuenta || vars.SCRAPER_CUENTA }}
           AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
           TELEGRAM_TOKEN:       ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID:     ${{ secrets.TELEGRAM_CHAT_ID }}

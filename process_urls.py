@@ -29,8 +29,18 @@ except ImportError as e:
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 
-# Si existe SCRAPER_API_KEY_NUEVA se usa esa; si no, la clave original.
-SCRAPER_KEY   = os.environ.get("SCRAPER_API_KEY_NUEVA", "").strip() or os.environ.get("SCRAPER_API_KEY", "")
+# Cuenta ScraperAPI: "actual" (SCRAPER_API_KEY) o "nueva" (SCRAPER_API_KEY_NUEVA).
+# Se elige con el desplegable del workflow o la variable SCRAPER_CUENTA; sin valor usa "actual".
+_KEY_ACTUAL = os.environ.get("SCRAPER_API_KEY", "").strip()
+_KEY_NUEVA  = os.environ.get("SCRAPER_API_KEY_NUEVA", "").strip()
+_CUENTA     = os.environ.get("SCRAPER_CUENTA", "").strip().lower() or "actual"
+if _CUENTA == "nueva" and _KEY_NUEVA:
+    SCRAPER_KEY = _KEY_NUEVA
+else:
+    if _CUENTA == "nueva":
+        print("⚠️  Cuenta 'nueva' elegida pero SCRAPER_API_KEY_NUEVA no existe; usando la actual")
+    SCRAPER_KEY = _KEY_ACTUAL
+print(f"ScraperAPI cuenta: {_CUENTA if SCRAPER_KEY else 'sin key'}")
 AFFILIATE_TAG = os.environ.get("AMAZON_AFFILIATE_TAG", "discountpartn-20")
 TG_TOKEN      = os.environ.get("TELEGRAM_TOKEN", "")
 TG_CHAT_ID    = os.environ.get("TELEGRAM_CHAT_ID", "")
