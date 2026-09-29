@@ -398,12 +398,12 @@ def _cta_hook(name: str, pct: int) -> str:
 def _urgency_cta() -> str:
     import random
     return random.choice([
-        "✨ ¡Aprovecha ya la promo!",
-        "🛍️ Aprovecha ya esta promo y asegura tu precio.",
-        "😉 Es un buen momento para aprovechar la promo.",
-        "🎁 ¡Aprovecha ya, la promo está activa!",
-        "👉 Aprovecha ya la promo antes de que cambie el precio.",
-        "💛 ¡Aprovéchala ya y ahorra!",
+        "📦 ¡Aprovecha ya! Las existencias pueden agotarse.",
+        "✨ Aprovecha ya la promo, las unidades pueden agotarse.",
+        "🛍️ ¡Aprovéchala ya! El stock es limitado y puede agotarse.",
+        "⏳ Aprovecha ya, las existencias pueden terminarse pronto.",
+        "👉 ¡Asegura el tuyo ya! Las unidades pueden agotarse.",
+        "💛 Aprovecha ya la promo antes de que se agoten las existencias.",
     ])
 
 
