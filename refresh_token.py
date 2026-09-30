@@ -3,13 +3,17 @@
 Convierte el token corto a Long-Lived Token (60 días)
 y lo guarda automáticamente en config.json
 """
-import json, requests, sys
+import json, os, requests, sys
 from pathlib import Path
 from datetime import datetime, timedelta
 
-APP_ID     = "1065767132713743"
-APP_SECRET = "5a96f3bb7782be3ebe055a41c617bbc2"
-SHORT_TOKEN = "IGAAVOpTvxtFxBZAGFxN3hPSmI4aFBKbnBfZAVRTbXJDNEdDUjBlZAVZAIci04UjlmdUlBdU5iUmU3dmV5aWVPS1l2MnIzRWVzaWtESUhSc3FqVDBPaklwejNfSzcyUk9tYlJTeTYxLWpwYjY2ZAjM0RlZAHa011eEUzVmJ3bVEwcE4zZAwZDZD"
+# Credenciales por variable de entorno (nunca en el código):
+#   set META_APP_ID=...  set META_APP_SECRET=...  set META_SHORT_TOKEN=...
+APP_ID      = os.environ.get("META_APP_ID", "")
+APP_SECRET  = os.environ.get("META_APP_SECRET", "")
+SHORT_TOKEN = os.environ.get("META_SHORT_TOKEN", "")
+if not (APP_ID and APP_SECRET and SHORT_TOKEN):
+    sys.exit("❌ Define META_APP_ID, META_APP_SECRET y META_SHORT_TOKEN como variables de entorno")
 
 CONFIG_PATH = Path(__file__).parent / "config.json"
 

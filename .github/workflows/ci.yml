@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'sent_asins.json'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt -q
+      - name: Compilar scripts Python
+        run: python -m py_compile deal_finder.py run_pipeline.py post_creator.py process_urls.py instagram_publisher.py refresh_token.py
+      - name: Verificar que no hay secretos en el código
+        run: |
+          if git grep -nE "IGAA[A-Za-z0-9]{20}|EAA[A-Za-z0-9]{40}|ghp_[A-Za-z0-9]{30}|APP_SECRET\s*=\s*\"[0-9a-f]{20}" -- . ':!.github'; then
+            echo "Se encontraron posibles secretos"; exit 1
+          fi

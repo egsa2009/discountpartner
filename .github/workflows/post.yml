@@ -1,4 +1,4 @@
-name: Discount Partner — Telegram Deals
+name: Discount Partner — Deals Reddit → Telegram
 
 on:
   # schedule:
@@ -38,16 +38,19 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install feedparser beautifulsoup4 requests pillow --break-system-packages -q
+          pip install -r requirements.txt -q
 
       - name: Run pipeline
         env:
           AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
           TELEGRAM_TOKEN:       ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID:     ${{ secrets.TELEGRAM_CHAT_ID }}
+          COUNT_IN: ${{ github.event.inputs.count || '10' }}
+          DRY_IN:   ${{ github.event.inputs.dry_run || 'false' }}
         run: |
-          COUNT=${{ github.event.inputs.count || '10' }}
-          DRY=${{ github.event.inputs.dry_run || 'false' }}
+          COUNT="$COUNT_IN"
+          DRY="$DRY_IN"
+          case "$COUNT" in ''|*[!0-9]*) echo "count inválido"; exit 1;; esac
           if [ "$DRY" = "true" ]; then
             python run_pipeline.py --count $COUNT --dry-run
           else

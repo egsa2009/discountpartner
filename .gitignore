@@ -25,3 +25,10 @@ venv/
 # ─── Otros ────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+
+# ─── Tokens y credenciales locales — NUNCA subir ───────────────────────────────
+token.txt
+page_token.txt
+*token*.txt
+Claude outputs/
+instagram_posts/
