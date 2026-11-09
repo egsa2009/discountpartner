@@ -15,7 +15,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -63,26 +63,29 @@ HEADERS = {
 
 # ─── Resolver links cortos ───────────────────────────────────────────────────
 
+def _is_amazon_product_host(url: str) -> bool:
+    host = urlparse(url).netloc.lower()
+    return host == "amazon.com" or host.endswith(".amazon.com")
+
+
 def resolve_amazon_url(url: str) -> str:
     """
-    Sigue redirects de links cortos (amzn.to, a.co/d/) hasta obtener
-    la URL completa de Amazon con ASIN. Sin ScraperAPI (solo HEAD request).
+    Sigue los redirects de cualquier link que no sea amazon.com (amzn.to, a.co,
+    link.amazon, amzlinks.in, etc.) hasta obtener la URL completa con ASIN.
+    Sin ScraperAPI. Si no se puede resolver devuelve la URL original.
     """
-    short_domains = ("amzn.to", "a.co", "amzn.com")
-    if not any(d in url for d in short_domains):
+    if _is_amazon_product_host(url):
         return url
-    try:
-        # HEAD request rápido para seguir redirects
-        r = requests.head(url, allow_redirects=True, timeout=10, headers={
-            "User-Agent": HEADERS["User-Agent"]
-        })
-        final = r.url
-        # Limpiar parámetros innecesarios pero conservar el path con ASIN
-        if "amazon.com" in final and "/dp/" in final:
-            print(f"   🔗 Resuelto: {url} → {final[:80]}")
-            return final
-    except Exception as e:
-        print(f"   ⚠️  No se pudo resolver URL corta: {e}")
+    headers = {"User-Agent": HEADERS["User-Agent"]}
+    for name in ("head", "get"):
+        try:
+            r = getattr(requests, name)(url, allow_redirects=True, timeout=15, headers=headers)
+            final = r.url
+            if _is_amazon_product_host(final) and _extract_asin(final):
+                print(f"   🔗 Resuelto: {url} → {final[:80]}")
+                return final
+        except Exception as e:
+            print(f"   ⚠️  No se pudo resolver URL corta ({name}): {e}")
     return url
 
 # ─── ScraperAPI ──────────────────────────────────────────────────────────────
@@ -558,6 +561,18 @@ def run_url_pipeline():
 
         if data["error"]:
             print(f"   ⚠️  {data['error']}")
+
+        if not data["title"] and data["sale_price"] == 0 and not (user_sale > 0):
+            # El scraping falló: no publicar un mensaje vacío, avisar en Telegram.
+            print("   ❌ Scraping fallido — se omite la publicación")
+            send_telegram_text(
+                f"⚠️ <b>No se pudo leer el producto #{i}</b>\n"
+                f"{product_url[:200]}\n"
+                "ScraperAPI no devolvió título ni precio. Revisa el enlace o los créditos de la cuenta."
+            )
+            results.append({"url": product_url, "asin": asin, "error": data["error"],
+                            "sent_telegram": False, "sent_instagram": False})
+            continue
 
         title = data["title"] or "Oferta Amazon"
         print(f"   📦 {title[:70]}")
