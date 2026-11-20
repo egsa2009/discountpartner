@@ -40,5 +40,30 @@ class ResolveAmazonUrlTest(unittest.TestCase):
             self.assertEqual(pu.resolve_amazon_url(url), url)
 
 
+class ReintentosScraperTest(unittest.TestCase):
+    def setUp(self):
+        self.sleep = mock.patch.object(pu.time, "sleep").start()
+        mock.patch.object(pu, "SCRAPER_KEY", "clave-falsa").start()
+        self.addCleanup(mock.patch.stopall)
+
+    def test_timeout_con_render_reintenta_sin_render(self):
+        ok = mock.Mock(status_code=200)
+        session = mock.Mock()
+        session.get.side_effect = [pu.requests.exceptions.ReadTimeout("lento"), ok]
+        resp, err = pu._get_con_reintentos("https://www.amazon.com/dp/B08HYRFP6W", session)
+        self.assertIs(resp, ok)
+        self.assertIsNone(err)
+        self.assertIn("render=true", session.get.call_args_list[0].args[0])
+        self.assertIn("render=false", session.get.call_args_list[1].args[0])
+
+    def test_falla_todo_devuelve_error(self):
+        session = mock.Mock()
+        session.get.return_value = mock.Mock(status_code=500)
+        resp, err = pu._get_con_reintentos("https://www.amazon.com/dp/B08HYRFP6W", session)
+        self.assertIsNone(resp)
+        self.assertIn("HTTP 500", err)
+        self.assertEqual(session.get.call_count, 2)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -90,7 +90,7 @@ def resolve_amazon_url(url: str) -> str:
 
 # ─── ScraperAPI ──────────────────────────────────────────────────────────────
 
-def scraper_url(url: str) -> str:
+def scraper_url(url: str, render: bool = True) -> str:
     """Envuelve la URL con ScraperAPI si hay key disponible.
     render=true: fuerza renderizado JS en vivo (precio actual, no cacheado).
     _cb: cache-buster aleatorio para evitar que ScraperAPI sirva página cacheada.
@@ -104,7 +104,7 @@ def scraper_url(url: str) -> str:
         return (
             f"https://api.scraperapi.com"
             f"?api_key={SCRAPER_KEY}"
-            f"&render=true"
+            f"&render={'true' if render else 'false'}"
             f"&country_code=us"
             f"&url={quote_plus(fresh_url)}"
         )
@@ -244,6 +244,28 @@ def _price(text: str) -> float:
 def _clean(text: str) -> str:
     return " ".join(text.split()).strip()
 
+# (render, timeout): con render=true es lo más fiable pero tarda; si se agota el
+# tiempo o falla se reintenta sin render, que es mucho más rápido.
+SCRAPER_INTENTOS = ((True, 60), (False, 40))
+
+
+def _get_con_reintentos(url: str, session: requests.Session):
+    """GET vía ScraperAPI con reintentos. Devuelve (response, None) o (None, error)."""
+    ultimo_error = "sin respuesta"
+    for render, timeout in SCRAPER_INTENTOS:
+        modo = "render" if render else "sin render"
+        try:
+            resp = session.get(scraper_url(url, render=render), timeout=timeout, allow_redirects=True)
+            if resp.status_code == 200:
+                return resp, None
+            ultimo_error = f"HTTP {resp.status_code} ({modo})"
+        except requests.exceptions.RequestException as e:
+            ultimo_error = f"{type(e).__name__} ({modo}): {str(e)[:120]}"
+        print(f"   ⚠️  ScraperAPI falló: {ultimo_error} — reintentando")
+        time.sleep(2)
+    return None, ultimo_error
+
+
 def fetch_amazon_product(url: str, session: requests.Session) -> dict:
     """Scraping completo via ScraperAPI: título, precios, imagen."""
     result = {
@@ -253,9 +275,9 @@ def fetch_amazon_product(url: str, session: requests.Session) -> dict:
     try:
         time.sleep(1.0)
         fetch_url = scraper_url(url)
-        resp = session.get(fetch_url, timeout=30, allow_redirects=True)
-        if resp.status_code != 200:
-            result["error"] = f"HTTP {resp.status_code}"
+        resp, err = _get_con_reintentos(url, session)
+        if resp is None:
+            result["error"] = err
             return result
 
         soup = BeautifulSoup(resp.text, "html.parser")
