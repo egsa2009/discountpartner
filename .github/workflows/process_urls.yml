@@ -7,12 +7,13 @@ on:
         description: 'JSON array de deals [{url, sale_price, orig_price, discount_pct}]'
         required: true
       cuenta:
-        description: 'Cuenta ScraperAPI a usar (vacío = la definida en la variable SCRAPER_CUENTA)'
+        description: 'Cuenta ScraperAPI a usar (auto = la que más créditos tenga)'
         required: false
         type: choice
         default: ''
         options:
           - ''
+          - auto
           - actual
           - nueva
           - '3'

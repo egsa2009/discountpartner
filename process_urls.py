@@ -30,14 +30,17 @@ except ImportError as e:
 # ─── Config ──────────────────────────────────────────────────────────────────
 
 # Cuenta ScraperAPI: "actual" (SCRAPER_API_KEY) o "nueva" (SCRAPER_API_KEY_NUEVA).
-# Se elige con el desplegable del workflow o la variable SCRAPER_CUENTA; sin valor usa "actual".
+# Se elige con el desplegable del workflow o la variable SCRAPER_CUENTA.
+# "auto" (o vacío): al empezar se consultan los créditos de cada cuenta y se usa primero la que más tenga.
 _KEY_ACTUAL = os.environ.get("SCRAPER_API_KEY", "").strip()
 _KEY_NUEVA  = os.environ.get("SCRAPER_API_KEY_NUEVA", "").strip()
 _KEY_3      = os.environ.get("SCRAPER_API_KEY_3", "").strip()
-_CUENTA     = os.environ.get("SCRAPER_CUENTA", "").strip().lower() or "actual"
+_CUENTA     = os.environ.get("SCRAPER_CUENTA", "").strip().lower() or "auto"
 _POR_CUENTA = {"actual": _KEY_ACTUAL, "nueva": _KEY_NUEVA, "3": _KEY_3}
 if _POR_CUENTA.get(_CUENTA):
     SCRAPER_KEY = _POR_CUENTA[_CUENTA]
+elif _CUENTA == "auto":
+    SCRAPER_KEY = _KEY_ACTUAL or _KEY_NUEVA or _KEY_3   # se reordena en ordenar_claves_por_creditos()
 else:
     if _CUENTA != "actual":
         print(f"⚠️  Cuenta '{_CUENTA}' elegida pero su clave no existe; usando la actual")
@@ -46,6 +49,56 @@ print(f"ScraperAPI cuenta: {_CUENTA if SCRAPER_KEY else 'sin key'}")
 # Claves en orden de uso: la elegida primero y la otra como respaldo si se queda sin créditos (403).
 SCRAPER_KEYS = [k for k in dict.fromkeys([SCRAPER_KEY, _KEY_3, _KEY_NUEVA, _KEY_ACTUAL]) if k]
 _KEYS_MUERTAS: set = set()
+
+
+def creditos_restantes(key: str):
+    """Créditos que le quedan a una clave (consulta /account, no gasta créditos).
+    Devuelve None si no se pudo consultar."""
+    try:
+        r = requests.get("https://api.scraperapi.com/account", params={"api_key": key}, timeout=15)
+        if r.status_code != 200:
+            return 0 if r.status_code in (401, 403) else None
+        d = r.json()
+        if "creditsLeft" in d:
+            return int(d["creditsLeft"])
+        return int(d["requestLimit"]) - int(d["requestCount"])
+    except Exception:
+        return None
+
+
+def ordenar_claves_por_creditos():
+    """Ordena SCRAPER_KEYS por créditos (mayor primero) y marca como muertas las que estén en 0.
+    Si se eligió una cuenta concreta, esa va primero y las demás quedan de respaldo por créditos."""
+    global SCRAPER_KEY, SCRAPER_KEYS
+    nombres = {_KEY_ACTUAL: "actual", _KEY_NUEVA: "nueva", _KEY_3: "3"}
+    claves = [k for k in dict.fromkeys([_KEY_ACTUAL, _KEY_NUEVA, _KEY_3]) if k]
+    if not claves:
+        return
+    info = {k: creditos_restantes(k) for k in claves}
+    resumen = " · ".join(
+        f"{nombres[k]}: {'?' if info[k] is None else info[k]}" for k in claves)
+    print(f"   Créditos ScraperAPI → {resumen}")
+
+    # None (desconocido) va después de las que tienen créditos y antes de las agotadas
+    def prioridad(k):
+        c = info[k]
+        return (c == 0, c is None, -(c or 0))
+    orden = sorted(claves, key=prioridad)
+    if _CUENTA != "auto" and _POR_CUENTA.get(_CUENTA) in orden:
+        forzada = _POR_CUENTA[_CUENTA]
+        if info[forzada] != 0:
+            orden.remove(forzada)
+            orden.insert(0, forzada)
+        else:
+            print(f"   ⚠️  La cuenta '{_CUENTA}' no tiene créditos; se usará otra")
+    _KEYS_MUERTAS.update(k for k in claves if info[k] == 0)
+    SCRAPER_KEYS = orden
+    vivas = [k for k in orden if k not in _KEYS_MUERTAS]
+    SCRAPER_KEY = vivas[0] if vivas else orden[0]
+    if vivas:
+        print(f"   Cuenta en uso: {nombres[SCRAPER_KEY]}")
+    else:
+        print("   ❌ Todas las cuentas de ScraperAPI están sin créditos")
 AFFILIATE_TAG = os.environ.get("AMAZON_AFFILIATE_TAG", "discountpartn-20")
 TG_TOKEN      = os.environ.get("TELEGRAM_TOKEN", "")
 TG_CHAT_ID    = os.environ.get("TELEGRAM_CHAT_ID", "")
