@@ -15,6 +15,7 @@ on:
           - ''
           - actual
           - nueva
+          - '3'
 
 jobs:
   process:
@@ -39,6 +40,7 @@ jobs:
           PRODUCT_DEALS:        ${{ github.event.inputs.deals }}
           SCRAPER_API_KEY:      ${{ secrets.SCRAPER_API_KEY }}
           SCRAPER_API_KEY_NUEVA: ${{ secrets.SCRAPER_API_KEY_NUEVA }}
+          SCRAPER_API_KEY_3:    ${{ secrets.SCRAPER_API_KEY_3 }}
           SCRAPER_CUENTA:       ${{ github.event.inputs.cuenta || vars.SCRAPER_CUENTA }}
           AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
           TELEGRAM_TOKEN:       ${{ secrets.TELEGRAM_TOKEN }}

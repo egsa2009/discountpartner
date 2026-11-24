@@ -228,6 +228,7 @@
     <select id="cuenta" onchange="saveCuenta()">
       <option value="actual">Cuenta actual (SCRAPER_API_KEY)</option>
       <option value="nueva">Cuenta nueva (SCRAPER_API_KEY_NUEVA)</option>
+      <option value="3">Cuenta 3 (SCRAPER_API_KEY_3)</option>
     </select>
   </div>
 
@@ -394,7 +395,7 @@
   (function loadCuenta() {
     try {
       const c = localStorage.getItem('dp_cuenta');
-      if (c === 'actual' || c === 'nueva') document.getElementById('cuenta').value = c;
+      if (c === 'actual' || c === 'nueva' || c === '3') document.getElementById('cuenta').value = c;
     } catch (e) {}
   })();
 

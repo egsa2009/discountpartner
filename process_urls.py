@@ -33,16 +33,18 @@ except ImportError as e:
 # Se elige con el desplegable del workflow o la variable SCRAPER_CUENTA; sin valor usa "actual".
 _KEY_ACTUAL = os.environ.get("SCRAPER_API_KEY", "").strip()
 _KEY_NUEVA  = os.environ.get("SCRAPER_API_KEY_NUEVA", "").strip()
+_KEY_3      = os.environ.get("SCRAPER_API_KEY_3", "").strip()
 _CUENTA     = os.environ.get("SCRAPER_CUENTA", "").strip().lower() or "actual"
-if _CUENTA == "nueva" and _KEY_NUEVA:
-    SCRAPER_KEY = _KEY_NUEVA
+_POR_CUENTA = {"actual": _KEY_ACTUAL, "nueva": _KEY_NUEVA, "3": _KEY_3}
+if _POR_CUENTA.get(_CUENTA):
+    SCRAPER_KEY = _POR_CUENTA[_CUENTA]
 else:
-    if _CUENTA == "nueva":
-        print("⚠️  Cuenta 'nueva' elegida pero SCRAPER_API_KEY_NUEVA no existe; usando la actual")
+    if _CUENTA != "actual":
+        print(f"⚠️  Cuenta '{_CUENTA}' elegida pero su clave no existe; usando la actual")
     SCRAPER_KEY = _KEY_ACTUAL
 print(f"ScraperAPI cuenta: {_CUENTA if SCRAPER_KEY else 'sin key'}")
 # Claves en orden de uso: la elegida primero y la otra como respaldo si se queda sin créditos (403).
-SCRAPER_KEYS = [k for k in dict.fromkeys([SCRAPER_KEY, _KEY_NUEVA, _KEY_ACTUAL]) if k]
+SCRAPER_KEYS = [k for k in dict.fromkeys([SCRAPER_KEY, _KEY_3, _KEY_NUEVA, _KEY_ACTUAL]) if k]
 _KEYS_MUERTAS: set = set()
 AFFILIATE_TAG = os.environ.get("AMAZON_AFFILIATE_TAG", "discountpartn-20")
 TG_TOKEN      = os.environ.get("TELEGRAM_TOKEN", "")

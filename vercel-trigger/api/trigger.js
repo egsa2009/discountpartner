@@ -44,7 +44,7 @@ module.exports = async function handler(req, res) {
           ref: "main",
           inputs: {
             deals: JSON.stringify(validDeals),
-            cuenta: cuenta === "nueva" || cuenta === "actual" ? cuenta : "",
+            cuenta: ["actual", "nueva", "3"].includes(cuenta) ? cuenta : "",
           },
         }),
       });
