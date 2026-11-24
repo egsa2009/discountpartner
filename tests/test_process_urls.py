@@ -64,6 +64,29 @@ class ReintentosScraperTest(unittest.TestCase):
         self.assertIn("HTTP 500", err)
         self.assertEqual(session.get.call_count, 2)
 
+    def test_403_cambia_a_la_otra_cuenta_y_descarta_la_muerta(self):
+        mock.patch.object(pu, "SCRAPER_KEYS", ["k-sin-creditos", "k-buena"]).start()
+        mock.patch.object(pu, "_KEYS_MUERTAS", set()).start()
+        ok = mock.Mock(status_code=200)
+        sin_creditos = mock.Mock(status_code=403, text="Account out of credits")
+        session = mock.Mock()
+        session.get.side_effect = [sin_creditos, ok]
+        resp, err = pu._get_con_reintentos("https://www.amazon.com/dp/B08HYRFP6W", session)
+        self.assertIs(resp, ok)
+        self.assertIn("api_key=k-sin-creditos", session.get.call_args_list[0].args[0])
+        self.assertIn("api_key=k-buena", session.get.call_args_list[1].args[0])
+        self.assertEqual(pu._KEYS_MUERTAS, {"k-sin-creditos"})
+
+    def test_clave_muerta_no_se_vuelve_a_usar(self):
+        mock.patch.object(pu, "SCRAPER_KEYS", ["k1", "k2"]).start()
+        mock.patch.object(pu, "_KEYS_MUERTAS", {"k1"}).start()
+        ok = mock.Mock(status_code=200)
+        session = mock.Mock()
+        session.get.return_value = ok
+        pu._get_con_reintentos("https://www.amazon.com/dp/B08HYRFP6W", session)
+        self.assertEqual(session.get.call_count, 1)
+        self.assertIn("api_key=k2", session.get.call_args.args[0])
+
 
 if __name__ == "__main__":
     unittest.main()

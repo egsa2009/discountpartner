@@ -41,6 +41,9 @@ else:
         print("⚠️  Cuenta 'nueva' elegida pero SCRAPER_API_KEY_NUEVA no existe; usando la actual")
     SCRAPER_KEY = _KEY_ACTUAL
 print(f"ScraperAPI cuenta: {_CUENTA if SCRAPER_KEY else 'sin key'}")
+# Claves en orden de uso: la elegida primero y la otra como respaldo si se queda sin créditos (403).
+SCRAPER_KEYS = [k for k in dict.fromkeys([SCRAPER_KEY, _KEY_NUEVA, _KEY_ACTUAL]) if k]
+_KEYS_MUERTAS: set = set()
 AFFILIATE_TAG = os.environ.get("AMAZON_AFFILIATE_TAG", "discountpartn-20")
 TG_TOKEN      = os.environ.get("TELEGRAM_TOKEN", "")
 TG_CHAT_ID    = os.environ.get("TELEGRAM_CHAT_ID", "")
@@ -90,12 +93,13 @@ def resolve_amazon_url(url: str) -> str:
 
 # ─── ScraperAPI ──────────────────────────────────────────────────────────────
 
-def scraper_url(url: str, render: bool = True) -> str:
+def scraper_url(url: str, render: bool = True, key: str = "") -> str:
     """Envuelve la URL con ScraperAPI si hay key disponible.
     render=true: fuerza renderizado JS en vivo (precio actual, no cacheado).
     _cb: cache-buster aleatorio para evitar que ScraperAPI sirva página cacheada.
     """
-    if SCRAPER_KEY:
+    key = key or SCRAPER_KEY
+    if key:
         import random
         cb = random.randint(100000, 999999)
         # Añadir cache-buster a la URL de Amazon (Amazon lo ignora, ScraperAPI lo trata como nueva URL)
@@ -103,7 +107,7 @@ def scraper_url(url: str, render: bool = True) -> str:
         fresh_url = f"{url}{sep}_cb={cb}"
         return (
             f"https://api.scraperapi.com"
-            f"?api_key={SCRAPER_KEY}"
+            f"?api_key={key}"
             f"&render={'true' if render else 'false'}"
             f"&country_code=us"
             f"&url={quote_plus(fresh_url)}"
@@ -250,19 +254,30 @@ SCRAPER_INTENTOS = ((True, 60), (False, 40))
 
 
 def _get_con_reintentos(url: str, session: requests.Session):
-    """GET vía ScraperAPI con reintentos. Devuelve (response, None) o (None, error)."""
+    """GET vía ScraperAPI con reintentos y cambio de cuenta.
+    Devuelve (response, None) o (None, error).
+    401/403 = clave inválida o sin créditos: se descarta esa clave y se usa la siguiente."""
     ultimo_error = "sin respuesta"
-    for render, timeout in SCRAPER_INTENTOS:
-        modo = "render" if render else "sin render"
-        try:
-            resp = session.get(scraper_url(url, render=render), timeout=timeout, allow_redirects=True)
-            if resp.status_code == 200:
-                return resp, None
-            ultimo_error = f"HTTP {resp.status_code} ({modo})"
-        except requests.exceptions.RequestException as e:
-            ultimo_error = f"{type(e).__name__} ({modo}): {str(e)[:120]}"
-        print(f"   ⚠️  ScraperAPI falló: {ultimo_error} — reintentando")
-        time.sleep(2)
+    claves = [k for k in SCRAPER_KEYS if k not in _KEYS_MUERTAS] or [""]
+    for key in claves:
+        for render, timeout in SCRAPER_INTENTOS:
+            modo = "render" if render else "sin render"
+            try:
+                resp = session.get(scraper_url(url, render=render, key=key),
+                                   timeout=timeout, allow_redirects=True)
+                if resp.status_code == 200:
+                    return resp, None
+                ultimo_error = f"HTTP {resp.status_code} ({modo})"
+                if resp.status_code in (401, 403):
+                    ultimo_error += f": {resp.text.strip()[:120]}"
+                    if key:
+                        _KEYS_MUERTAS.add(key)
+                    print(f"   ⚠️  ScraperAPI {ultimo_error} — clave sin acceso/créditos, probando otra cuenta")
+                    break
+            except requests.exceptions.RequestException as e:
+                ultimo_error = f"{type(e).__name__} ({modo}): {str(e)[:120]}"
+            print(f"   ⚠️  ScraperAPI falló: {ultimo_error} — reintentando")
+            time.sleep(2)
     return None, ultimo_error
 
 
@@ -697,6 +712,9 @@ def run_url_pipeline():
                     "total": len(deal_list), "results": results},
                    ensure_ascii=False, indent=2), encoding="utf-8"
     )
+    if deal_list and sent == 0:
+        print("❌ No se envió ningún producto")
+        sys.exit(1)   # que el workflow aparezca en rojo y no como "success"
 
 if __name__ == "__main__":
     run_url_pipeline()
